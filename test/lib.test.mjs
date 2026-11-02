@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { CDNS, PARSE, placeOf, popMaps, cdnOfName, isCloudflareIP } from "../src/cdns.mjs";
-import { km, floorMs, tierOf, detoured, nearest, missedNearest, summary, encode, decode, sharePath, hostOf } from "../src/lib.mjs";
+import { km, floorMs, tierOf, detoured, nearest, missedNearest, summary, encode, decode, sharePath, hostOf, groupExits, routes } from "../src/lib.mjs";
 
 const pops = popMaps(JSON.parse(await readFile(new URL("../data/pops.json", import.meta.url), "utf8")));
 const places = JSON.parse(await readFile(new URL("../data/places.json", import.meta.url), "utf8"));
@@ -103,6 +103,75 @@ test("a result survives its link", () => {
   assert.equal(decode("1~abc~-~-~-~-"), null);
   assert.equal(decode("1~abc~ZZ.!!~-~-~-"), null);
   assert.deepEqual(sharePath("/r/1~abc~-~-~x~-"), { slug: "", code: "1~abc~-~-~x~-" });
+});
+
+// The case that prompted routes (2026-11, a visitor in Hebei behind a rule-based proxy in Tokyo whose address IP
+// geolocation puts in Los Angeles): mainland sites direct, the rest through the proxy.
+const HEBEI = { cc: "CN", city: "Hengshui", lat: 37.7, lon: 115.7, asn: 4837, org: "CHINA UNICOM China169 Backbone" };
+const VPS = { cc: "US", city: "Los Angeles", lat: 34.05, lon: -118.24, asn: 20473, org: "The Constant Company, LLC", edge: [35.77, 140.39, "Tokyo", "JP"] };
+const split = () => groupExits([{ ip: "114.254.1.2", src: "cn" }, { ip: "45.76.1.2", src: "self" }, { ip: "45.76.9.9", src: "cloudflare" }, { ip: "114.254.7.7", src: "cfchina" }],
+  { "114.254.1.2": HEBEI, "45.76.1.2": VPS });
+
+test("exits: the visitor's own line and a proxy, each placed", () => {
+  const E = split();
+  assert.deepEqual(E.map(e => [e.letter, e.kind]), [["D", "D"], ["P", "P"]]);
+  assert.deepEqual(E[0].srcs, ["cn", "cfchina"]);
+  // the proxy is where the Cloudflare location it reaches is, not where its address is registered
+  assert.equal(E[1].city, "Tokyo");
+  assert.ok(E[1].edge && Math.abs(E[1].lat - 35.77) < .01);
+  // no hosting network, two exits: the mainland probe's is direct
+  const E2 = groupExits([{ ip: "1.2.3.4", src: "cn" }, { ip: "5.6.7.8", src: "self" }], { "1.2.3.4": { asn: 1, org: "Home ISP" }, "5.6.7.8": { asn: 2, org: "Other ISP" } });
+  assert.deepEqual(E2.map(e => e.letter), ["D", "P"]);
+  // one exit on a home network: direct, unnumbered; two proxies are numbered
+  assert.deepEqual(groupExits([{ ip: "1.2.3.4", src: "cn" }, { ip: "1.2.200.1", src: "self" }], {}).map(e => e.letter), ["D"]);
+  const PP = groupExits([{ ip: "45.76.1.2", src: "self" }, { ip: "8.8.4.4", src: "cloudflare" }], { "45.76.1.2": VPS, "8.8.4.4": { asn: 15169, org: "Google LLC" } });
+  assert.deepEqual(PP.map(e => e.letter), ["P1", "P2"]);
+  // a direct exit is never moved to a Cloudflare location (from China, Cloudflare often answers in the US)
+  const D1 = groupExits([{ ip: "1.2.3.4", src: "cn" }], { "1.2.3.4": { ...HEBEI, edge: [33.94, -118.4, "Los Angeles", "US"] } });
+  assert.equal(D1[0].city, "Hengshui");
+  // … but the China Network's location places one that has no place of its own
+  const D2 = groupExits([{ ip: "1.2.3.4", src: "cfchina" }], { "1.2.3.4": { edgeCn: [37.7, 115.7, "Hengshui", "CN"] } });
+  assert.equal(D2[0].city, "Hengshui");
+});
+
+test("routes: which exit each CDN's request took, and how that was told", () => {
+  const E = split(), place = (id, code) => placeOf(id, code, pops, places);
+  const rows = [
+    { id: "cloudflare", ip: "45.76.9.9", place: place("cloudflare", "NRT"), ms: 118 },
+    { id: "cfchina", ip: "114.254.7.7", place: place("cfchina", "SJW"), ms: 28 },
+    { id: "cloudfront", place: place("cloudfront", "NRT"), ms: 63 },
+    { id: "akamai", place: place("akamai", "GB-LONDON"), ms: 173 },
+    { id: "wangsu", ms: 10 },
+    { id: "alibaba", ms: 68 },
+    { id: "gcore", ms: 88 },
+  ];
+  const R = routes(rows, E, "D");
+  assert.deepEqual(R.cloudflare, { x: "P", how: "ip" });
+  assert.deepEqual(R.cfchina, { x: "D", how: "ip" });
+  assert.deepEqual(R.cloudfront, { x: "P", how: "pop" });
+  // London is about as far from Tokyo as from Hebei: can't tell
+  assert.deepEqual(R.akamai, { x: null });
+  // 10 ms: shorter than the way to Tokyo allows
+  assert.deepEqual(R.wangsu, { x: "D", how: "ms" });
+  assert.deepEqual(R.alibaba, { x: "D", how: "rule" });
+  assert.deepEqual(R.gcore, { x: null });
+  // one exit: everything took it
+  assert.deepEqual(routes([{ id: "gcore", ms: 88 }], E.slice(0, 1), "D").gcore, { x: "D", how: "one" });
+  // the verdict leaves out the rows it can't place
+  assert.equal(summary([{ id: "akamai", ms: 173, d: 8000, unsure: true }, { id: "cloudflare", ms: 20, d: 100 }]).located, 1);
+});
+
+test("a result's routes survive its link, and the exits' places only with the visitor's", () => {
+  const r = { ts: 1793584000000, where: { cc: "CN", lat: 37.7, lon: 115.7, city: "" }, isp: "",
+    rows: [{ id: "cloudflare", code: "NRT", ms: 118, route: { x: "P", how: "ip" } }, { id: "wangsu", code: null, ms: 10, route: { x: "D", how: "ms" } }, { id: "gcore", code: null, ms: 88 }],
+    site: null, exits: [{ letter: "P", lat: 35.77, lon: 140.39 }] };
+  const back = decode(encode(r));
+  assert.deepEqual(back.rows, r.rows);
+  assert.equal(back.exits.length, 1);
+  assert.ok(Math.abs(back.exits[0].lon - 140.4) < .06);
+  assert.deepEqual(decode(encode({ ...r, where: null })).exits, []);
+  // links from before routes still read
+  assert.deepEqual(decode("1~abc~-~-~cloudflare.LAX.1n4~-").rows, [{ id: "cloudflare", code: "LAX", ms: 212.8 }]);
 });
 
 test("host names from what people type", () => {

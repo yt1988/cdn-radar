@@ -57,7 +57,7 @@ async function loadI18n() {
 const BUILD_ONLY = new Set(["name", "seo_title", "seo_desc", "seo_kw", "og_sub", "h1", "docs", "lang_label", "faq_h", "h_cdns", "cdns_sub", "c_cdn", "c_pop",
   "c_dist", "c_ms", "h_timed", "st_near", "st_near_s", "st_med", "st_far", "you_k", "precise", "h_site", "site_ph", "site_go", "egress_link", "cost_link",
   "speed_link", "home_link", "share_title", "share_desc", "cdn_title", "cdn_desc", "cdn_desc_list", "cdn_kw", "cdn_h1", "cdn_og", "cdn_title_timed", "cdn_desc_timed", "cdn_kw_timed",
-  "cdn_h1_timed", "cdn_og_timed", "how_h", "how_trace", "how_header",
+  "cdn_h1_timed", "cdn_og_timed", "cond_h", "cond_ctl", "rules_h", "rules_intro", "rules_mode", "rules_d", "rules_p", "rules_fmt", "rules_tip", "how_h", "how_trace", "how_header",
   "how_timing", "how_none", "list_h", "list_cn", "more_cdns", "pop_title", "pop_desc", "pop_kw", "pop_h1", "pop_intro", "f_code", "f_city", "f_country",
   "f_coord", "f_net", "pop_cn", "pop_global", "near_h", "cc_h", "hl_cdns", "hl_pops", "hl_n", "hl_read", "hl_timed"]);
 
@@ -104,7 +104,7 @@ export async function build() {
     const rowHTML = (c, me) => `<div class="cr wait${me ? " me" : ""}" data-c="${c.id}" style="--c:${c.c}"><span class="cn"><i class="dot"></i><a href="${pathOf(slug, c.id + "/")}">${esc(cname(c))}</a><em class="via" hidden></em></span>` +
       `<span class="cp"><b>…</b> <span></span></span><span class="cd"><b>…</b></span><span class="cm"><b>…</b><i class="rb"><i></i></i></span></div>`;
     // One CDN that is timed only: a tile with its round trip
-    const tileHTML = (c, me) => `<div class="tt wait${me ? " me" : ""}" data-c="${c.id}" style="--c:${c.c}"><a href="${pathOf(slug, c.id + "/")}"><i class="dot"></i>${esc(cname(c))}</a><b>…</b><i class="rb"><i></i></i></div>`;
+    const tileHTML = (c, me) => `<div class="tt wait${me ? " me" : ""}" data-c="${c.id}" style="--c:${c.c}"><a href="${pathOf(slug, c.id + "/")}"><i class="dot"></i>${esc(cname(c))}</a><em class="via" hidden></em><b>…</b><i class="rb"><i></i></i></div>`;
     const stat = (id, k, s) => `<div class="stat"><span class="k">${esc(k)}</span><b id="${id}">–</b><span class="s" id="${id}S">${s ? esc(s) : "&nbsp;"}</span></div>`;
 
     // the test: the verdict with what matters in four numbers and a few lines, the site check, then every CDN (the
@@ -117,6 +117,7 @@ export async function build() {
       return `    <section class="hero card${first ? " one" : ""}">
       <h1>${esc(h1)}</h1>${intro ? `\n      <p class="intro">${esc(intro)}</p>` : ""}
       <div class="verd"><p class="verdict" id="verdict">${esc(T("v_wait"))}</p><p class="vsub" id="vsub">&nbsp;</p></div>
+      <div class="cond" id="cond"><div class="cond-h"><span class="k">${esc(T("cond_h"))}</span><span class="xcs" id="condEx"></span><button class="lnk" id="rulesBtn" type="button" aria-haspopup="dialog" aria-controls="rules">${esc(T("cond_ctl"))}</button></div><p class="cond-t" id="condTxt">${esc(T("cond_wait"))}</p></div>
       <div class="stats">
         ${first ? stat("stPop", T("c_pop")) + stat("stDist", T("c_dist")) + stat("stMs", T("c_ms"))
           : stat("stNear", T("st_near"), T("st_near_s")) + stat("stMed", T("st_med")) + stat("stFar", T("st_far"))}
@@ -147,6 +148,25 @@ ${tiles}
       <p class="links">${linkOut("egressLink", "egress_link")}${linkOut("speedLink", "speed_link")}${linkOut("homeLink", "home_link")}${linkOut("costLink", "cost_link")}</p>
     </section>`;
     };
+
+    // Routing rules that send every test host one way, for a test all direct or all through the proxy: the script fills
+    // the box for the route and client picked (src/app.js, RULES)
+    const rulesHTML = `<div class="scrim" id="rules" hidden>
+  <div class="dialog rules" role="dialog" aria-modal="true" aria-labelledby="rulesT">
+    <div class="dlg-h"><h2 id="rulesT">${esc(T("rules_h"))}</h2>
+      <button class="icon-btn" data-close type="button" aria-label="${esc(T("a_close"))}"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button></div>
+    <div class="rules-b">
+      ${T("rules_intro").split(/\n+/).map(p => `<p>${esc(p)}</p>`).join("")}
+      <div class="rules-f">
+        <label><span>${esc(T("rules_mode"))}</span><select id="rulesMode"><option value="d">${esc(T("rules_d"))}</option><option value="p">${esc(T("rules_p"))}</option></select></label>
+        <label><span>${esc(T("rules_fmt"))}</span><select id="rulesFmt"><option value="clash">Clash / mihomo</option><option value="surge">Surge · Shadowrocket · Stash · Loon</option><option value="qx">Quantumult X</option></select></label>
+      </div>
+      <textarea id="rulesTxt" readonly rows="9" spellcheck="false" aria-labelledby="rulesT"></textarea>
+      <div class="rules-a"><p class="m">${esc(T("rules_tip"))}</p><button class="btn pri" id="rulesCopy" type="button"><span>${esc(T("rules_copy"))}</span></button></div>
+    </div>
+  </div>
+</div>
+`;
 
     // how a CDN's location is read, and its locations by country (linked to their pages)
     const cdnArticle = c => {
@@ -265,7 +285,7 @@ ${tiles}
         .replace("{{prepaint}}", PREPAINT).replace("{{head}}", head).replace("{{css}}", F.css).replace("{{js}}", F.js).replace("{{strings}}", sName)
         .replace(pg.kind !== "home" ? ` aria-current="page"` : "{{none}}", "").split("{{homeHref}}").join(pathOf(slug)).replace("{{langOpts}}", langOpts)
         .replace("{{main}}", () => pg.main).replace("{{article}}", () => pg.article || "")
-        .replace("{{helpNav}}", () => helpNav).replace("{{helpC}}", () => helpC)
+        .replace("{{helpNav}}", () => helpNav).replace("{{helpC}}", () => helpC).replace("{{rules}}", () => pg.kind === "pop" ? "" : rulesHTML)
         .replace("{{data}}", () => json(data));
       if (/\{\{[\w:]+\}\}/.test(html)) throw new Error("unfilled placeholder in " + at(slug) + ": " + /\{\{[\w:]+\}\}/.exec(html)[0]);
       files[at(slug).slice(1) + "index.html"] = html;

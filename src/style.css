@@ -25,6 +25,16 @@ a.q0:hover { color: var(--ink); }
 .verdict { font-size: clamp(20px, 2.4vw, 25px); font-weight: 750; letter-spacing: -.02em; line-height: 1.3; min-height: 1.3em; }
 .verdict.t1 { color: var(--t1); } .verdict.warn { color: var(--warn); } .verdict.bad { color: var(--bad); }
 .vsub { font-size: 14px; color: var(--muted); min-height: 1.5em; }
+/* the test's conditions: the exits, and what they mean for the results */
+.cond { display: flex; flex-direction: column; gap: 4px; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--line); }
+.cond-h { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; }
+.cond-h .k { font-size: 12px; color: var(--muted); }
+.cond-h .lnk { margin-left: auto; }
+.xcs { display: contents; }
+.xc { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-style: normal; font-weight: 600; }
+.xc span { font-weight: 400; color: var(--muted); }
+.cond-t { margin: 0; font-size: 13.5px; line-height: 1.55; }
+.stat b.two { display: flex; flex-wrap: wrap; gap: 0 10px; font-size: 16px; line-height: 1.7; }
 .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.35fr); gap: 10px; }
 .stat { display: flex; flex-direction: column; gap: 3px; padding: 12px 14px; border-radius: 12px; background: var(--soft); min-width: 0; }
 .stat .k { font-size: 12px; color: var(--muted); }
@@ -89,7 +99,15 @@ svg.ext[viewBox] { width: .95em; height: .95em; flex: none; }
 .cn a { color: inherit; text-decoration: none; overflow: hidden; text-overflow: ellipsis; }
 .cn a:hover { text-decoration: underline; }
 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--c); flex: none; display: inline-block; }
-.via { font: 500 11px var(--f-ui); color: var(--warn); background: var(--warn-soft); padding: 0 5px; border-radius: 4px; flex: none; }
+/* the exit a row took: D direct, P through a proxy, ? can't tell; dashed when inferred from routing rules */
+.via, .xc b { font: 700 11px/16px var(--f-num); padding: 0 5px; border-radius: 4px; flex: none; font-style: normal; border: 1px solid transparent; cursor: default; }
+.rd.via, .xc.rd b { color: var(--t1); background: color-mix(in srgb, var(--t1) 14%, transparent); }
+.rp.via, .xc.rp b { color: var(--ink); background: var(--ink-soft); }
+.rq.via { color: var(--muted); background: var(--soft); }
+.via.guess { background: transparent; border-style: dashed; border-color: currentColor; }
+.tt .via { position: absolute; top: 8px; right: 9px; }
+.tt { position: relative; }
+.cd b.m { color: var(--muted); font-weight: 500; }
 .cp { font-size: 13px; }
 .cp b { font: 650 14px var(--f-num); }
 .cp b a { color: inherit; text-decoration: underline dotted; text-underline-offset: 3px; }
@@ -187,6 +205,16 @@ svg.ext[viewBox] { width: .95em; height: .95em; flex: none; }
 .dlg-h { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 12px 12px 18px; border-bottom: 1px solid var(--line); }
 .dlg-h h2 { font-size: 16px; }
 .dialog.help { width: 860px; height: min(560px, calc(100vh - 32px)); }
+.dialog.rules { width: 640px; }
+.rules-b { padding: 14px 18px 18px; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
+.rules-b p { margin: 0; font-size: 13.5px; line-height: 1.65; }
+.rules-f { display: flex; flex-wrap: wrap; gap: 10px; }
+.rules-f label { display: flex; flex-direction: column; gap: 4px; flex: 1 1 200px; font-size: 12px; color: var(--muted); }
+.rules-f select { height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--fg); font: 500 14px var(--f-ui); }
+.rules-b textarea { width: 100%; resize: vertical; min-height: 150px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg); color: var(--fg);
+  font: 12.5px/1.6 var(--f-num); white-space: pre; overflow: auto; }
+.rules-a { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.rules-a .m { font-size: 12px; color: var(--muted); }
 .help-b { display: grid; grid-template-columns: 250px minmax(0, 1fr); min-height: 0; flex: 1; }
 .help-nav { border-right: 1px solid var(--line); padding: 8px; overflow: auto; display: flex; flex-direction: column; gap: 2px; }
 .help-nav button { text-align: left; border: 0; background: none; padding: 9px 12px; border-radius: 8px; cursor: pointer; font-size: 13px; color: var(--muted); line-height: 1.4; }
@@ -217,6 +245,10 @@ svg.ext[viewBox] { width: .95em; height: .95em; flex: none; }
   .stat .k, .stat .s { font-size: 11px; }
   .stat b { font-size: 15px; letter-spacing: -.03em; }
   .stat.you b { font-size: 14px; }
+  .stat b.two { flex-direction: column; gap: 0; font-size: 13px; }
+  .cond { padding: 9px 11px; }
+  .cond-h .lnk { margin-left: 0; flex-basis: 100%; text-align: left; }
+  .xc span { display: none; }
   .stat.you { grid-column: 1 / -1; }
   .finds { font-size: 13.5px; min-height: calc(3 * 1.55em * 2 + 16px); }
   .cdns { padding: 16px 16px 12px; }

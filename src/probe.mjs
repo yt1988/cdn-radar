@@ -44,8 +44,8 @@ export function readPop(read, x) {
 const median = a => { const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
-// A CDN: { ms, code, loc } (ms null when it never answered; code null when it didn't say; loc: the country a trace
-// saw the request from) and err ("timeout", "fail")
+// A CDN: { ms, code, loc, ip } (ms null when it never answered; code null when it didn't say; loc and ip: the country
+// and address a trace saw the request come from, which tell the exit it took) and err ("timeout", "fail")
 export async function probe(cdn, signal) {
   const cors = !!cdn.read && !cdn.read.startsWith("st:");
   let code = null, warm = null, err = null;
@@ -65,7 +65,8 @@ export async function probe(cdn, signal) {
     try { code = readPop(alts[0].read, await once(alts[0].url, !alts[0].read.startsWith("st:"), WARM_TIMEOUT, signal)); } catch (e) { if (signal && signal.aborted) throw e; }
   }
   if (!warm) return { ms: null, code, err };
-  // Cloudflare's trace also says which country the request came from: a proxy that carries this CDN shows here
+  // Cloudflare's trace also says which address and country the request came from: the exit that carried it
+  const ip = cdn.read === "trace" ? PARSE.ip(warm.body) : null;
   const loc = cdn.read === "trace" ? (/loc=([A-Z]{2})/.exec(warm.body) || [])[1] || null : null;
   const ts = [];
   for (let i = 0; i < TIMED; i++) {
@@ -76,7 +77,7 @@ export async function probe(cdn, signal) {
       if (!code) code = readPop(cdn.read, x);
     } catch (e) { if (signal && signal.aborted) throw e; }
   }
-  return { ms: ts.length ? median(ts) : warm.ms, code, loc, err: null };
+  return { ms: ts.length ? median(ts) : warm.ms, code, loc, ip, err: null };
 }
 
 // Names and addresses a site's DNS gives, not the local resolver's (or a proxy's fake addresses). This site's Worker
