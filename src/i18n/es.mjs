@@ -74,6 +74,7 @@ export default {
   rt_pop: "{x}: la ubicación que respondió está mucho más cerca de la salida {x} ({where}). Una CDN elige la ubicación por la dirección de la que llega la petición.",
   rt_ms: "{x}: un tiempo de ida y vuelta de {ms} es más corto de lo que permite cualquier camino por un proxy, así que fue directo.",
   rt_rule: "{x} (inferido): este dominio está en la lista de conexión directa de China continental de las reglas habituales (geosite:cn), y tu tráfico hacia China continental sale por {x}.",
+  rt_own: "www.cloudflare.com no respondió (puede bloquearlo una extensión del navegador), así que esta fila midió el trace de este sitio, por la ruta de este sitio: no muestra Cloudflare con tus reglas y no cuenta en el veredicto.",
   rt_q: "No se puede saber por qué salida fue: su distancia parte de tu ubicación, es solo orientativa y no cuenta en el veredicto.",
   st_med_dp: "{d} directas · {p} por proxy",
   you_proxy: "salida del proxy",

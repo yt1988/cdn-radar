@@ -74,6 +74,7 @@ export default {
   rt_pop: "{x}: the location that answered is far nearer exit {x} ({where}). A CDN picks the location by the address a request comes from.",
   rt_ms: "{x}: a round trip of {ms} is shorter than any way through a proxy allows, so it went direct.",
   rt_rule: "{x} (inferred): this domain is on the mainland-China direct list of common routing rules (geosite:cn), and your mainland traffic takes {x}.",
+  rt_own: "www.cloudflare.com didn't answer (a browser extension may block it), so this row timed this site's own trace, over this site's route: it doesn't show Cloudflare under your rules and doesn't count in the verdict.",
   rt_q: "Which exit this one took can't be told: its distance starts at your location, is only a guide, and doesn't count in the verdict.",
   st_med_dp: "{d} direct · {p} through a proxy",
   you_proxy: "proxy exit",

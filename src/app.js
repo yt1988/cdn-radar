@@ -226,7 +226,8 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     const x = R[id];
     if (!x) return null;
     const place = x.code && DATA.pops ? placeOf(id, x.code, DATA.pops, DATA.places) : null;
-    const route = (SHOWN ? x.route : EX.rt[id]) || { x: null }, ex = route.x && exitBy(route.x);
+    // answered only through this site's own trace: this site's route was measured, not the CDN's
+    const route = x.own && !SHOWN ? { x: null, how: "own" } : (SHOWN ? x.route : EX.rt[id]) || { x: null }, ex = route.x && exitBy(route.x);
     const multi = SHOWN ? SHOWN.multi : exits().length > 1;
     const m = ex && ex.kind === "P" && ex.lat != null ? ex : route.x && route.x[0] === "P" ? null : me();
     const d = place && m && m.lat != null ? km(m.lat, m.lon, place[2], place[3]) : null;
@@ -234,7 +235,7 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     const you = me(), dp = d != null && m === ex && you && you.lat != null ? km(you.lat, you.lon, ex.lat, ex.lon) + d : null;
     const list = BY[id] && BY[id].list && DATA.pops && DATA.pops[BY[id].list];
     const near = d != null && list && m ? nearest(id === "cfchina" ? Object.fromEntries(Object.entries(list).filter(([, p]) => p[1] === "CN")) : list, m.lat, m.lon) : null;
-    return { id, code: x.code, ms: x.ms, err: x.err, place, d, dp, near, route, multi, unsure: multi && !route.x };
+    return { id, code: x.code, ms: x.ms, err: x.err, place, d, dp, near, route, multi, unsure: (multi || !!x.own) && !route.x };
   }
 
   // a round trip's color: near (t1) to far (t5)
@@ -250,13 +251,13 @@ import { probe, dns, once, readPop } from "./probe.mjs";
   // told on hover. One inferred from routing rules is drawn dashed.
   function routeBadge(el, x) {
     if (!el) return;
-    const show = !!x && x.ms != null && x.multi;
+    const show = !!x && x.ms != null && (x.multi || x.route.how === "own");
     el.hidden = !show;
     if (!show) return;
     const r = x.route, e = r.x && exitBy(r.x);
     el.textContent = r.x || "?";
     el.className = "via " + (!r.x ? "rq" : r.x[0] === "D" ? "rd" : "rp") + (r.how === "rule" ? " guess" : "");
-    el.dataset.why = r.x ? t("rt_" + r.how, { x: r.x, where: e ? exitWhere(e) : r.x, cdn: cdnName(x.id), ms: msTxt(x.ms) }) : t("rt_q");
+    el.dataset.why = r.x ? t("rt_" + r.how, { x: r.x, where: e ? exitWhere(e) : r.x, cdn: cdnName(x.id), ms: msTxt(x.ms) }) : t(x.route.how === "own" ? "rt_own" : "rt_q");
     el.tabIndex = 0;
   }
 
@@ -465,7 +466,7 @@ import { probe, dns, once, readPop } from "./probe.mjs";
         // trace (Cloudflare's last fallback) took this site's route, not the CDN's: it tells nothing about the row.
         const own = !!x.url && x.url.startsWith("/");
         if (x.ip) addExit(x.ip, own ? "self" : c.id, c.id === "cfchina" ? { coloCn: x.code } : { colo: x.code });
-        if (own) x.ip = null;
+        if (own) { x.ip = null; x.own = true; }
         progress(); redraw();
       }
     };
