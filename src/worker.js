@@ -51,6 +51,8 @@ function geo(req) {
 // local resolver's (nor a censor's); cached five minutes, nothing kept.
 async function dns(url) {
   const name = (url.searchParams.get("name") || "").toLowerCase();
+  // asked without a name (1ms-shell's check of the direct route): how to ask
+  if (!name) return new Response("Usage: /dns?name=<host>\n", { headers: { "content-type": "text/plain; charset=utf-8", "x-robots-tag": "noindex" } });
   if (!/^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{1,62}$/.test(name)) return new Response("Bad name\n", { status: 400 });
   let ans;
   try {
