@@ -88,6 +88,7 @@ export default {
   list_h: "Alle {n} {cdn}-Standorte",
   list_cn: "{n} davon liegen in Festlandchina, im China Network.",
   more_cdns: "Andere CDNs",
+  hl_cdns: "Standorte jedes CDN", hl_pops: "Meistgenutzte Cloudflare-Standorte", hl_n: "{n} Standorte", hl_read: "Standort lesbar", hl_timed: "Latenztest",
 
   pop_title: "{cdn}-Rechenzentrum {city} ({code}): Standort und Latenz · CDN-Radar",
   pop_desc: "Der {cdn}-Standort {code} in {city}, {country}: wo er liegt, seine nächsten Nachbarn und ein Test, ob er dich bedient.",

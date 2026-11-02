@@ -29,6 +29,9 @@ export const LANGS = [["en", "", "en_US"], ["zh-CN", "zh-cn", "zh_CN"], ["zh-TW"
   ["es", "es", "es_ES"], ["fr", "fr", "fr_FR"], ["de", "de", "de_DE"], ["pt", "pt", "pt_BR"], ["ru", "ru", "ru_RU"]];
 // the CDNs whose every location has a page
 export const LISTS = ["cloudflare", "bunny", "wikimedia"];
+// Cloudflare locations linked from the home page: the ones Asia, the Americas and Europe land on most, and the
+// biggest of the China Network's
+const HOT = ["HKG", "TPE", "NRT", "KIX", "ICN", "SIN", "BKK", "BOM", "LAX", "SJC", "SEA", "IAD", "ORD", "FRA", "AMS", "LHR", "CDG", "SYD", "GRU", "DXB", "SHA", "PKX", "CAN", "CTU"];
 
 // Runs before first paint: apply the saved theme. On an English page, send visitors to their language's (a saved
 // choice first, then the browser languages), and a shared result /r/<code> to /<lang>/r/<code>; crawlers and English
@@ -56,7 +59,7 @@ const BUILD_ONLY = new Set(["name", "seo_title", "seo_desc", "seo_kw", "og_sub",
   "speed_link", "home_link", "share_title", "share_desc", "cdn_title", "cdn_desc", "cdn_desc_list", "cdn_kw", "cdn_h1", "cdn_og", "cdn_title_timed", "cdn_desc_timed", "cdn_kw_timed",
   "cdn_h1_timed", "cdn_og_timed", "how_h", "how_trace", "how_header",
   "how_timing", "how_none", "list_h", "list_cn", "more_cdns", "pop_title", "pop_desc", "pop_kw", "pop_h1", "pop_intro", "f_code", "f_city", "f_country",
-  "f_coord", "f_net", "pop_cn", "pop_global", "near_h", "cc_h"]);
+  "f_coord", "f_net", "pop_cn", "pop_global", "near_h", "cc_h", "hl_cdns", "hl_pops", "hl_n", "hl_read", "hl_timed"]);
 
 // The map's land: Natural Earth 1:110m (world-atlas), on an equirectangular world from 84°N to 58°S, 1 unit a degree
 async function mapSvg() {
@@ -196,7 +199,17 @@ ${tiles}
     };
 
     // every page of this language: the test, one per CDN, one per location
-    const pages = [{ kind: "home", dir: "", title: T("seo_title"), desc: T("seo_desc"), kw: T("seo_kw"), og: T("og_sub"), main: toolMain({ h1: T("h1") }), faq: true }];
+    // the home page's way into the rest: every CDN's page, and the Cloudflare locations people land on most
+    const homeArticle = () => {
+      const cdns = CDNS.map(c => {
+        const n = c.list ? (c.id === "cfchina" ? POPS.cloudflare.filter(p => p[2] === "CN").length : POPS[c.list].length) : 0;
+        return `<a href="${pathOf(slug, c.id + "/")}"><i class="dot" style="--c:${c.c}"></i>${esc(cname(c))}<span>${esc(n ? T("hl_n", { n }) : c.read ? T("hl_read") : T("hl_timed"))}</span></a>`;
+      }).join("");
+      const pops = HOT.map(code => POPS.cloudflare.find(p => p[0] === code)).filter(Boolean)
+        .map(p => `<a href="${popHref.cloudflare}${p[0].toLowerCase()}/">${esc(p[0])}<span>${esc(p[1])}</span></a>`).join("");
+      return `<article class="art card hl"><h2>${esc(T("hl_cdns"))}</h2><p class="others">${cdns}</p><h2>${esc(T("hl_pops"))}</h2><p class="others pops">${pops}</p></article>`;
+    };
+    const pages = [{ kind: "home", dir: "", title: T("seo_title"), desc: T("seo_desc"), kw: T("seo_kw"), og: T("og_sub"), main: toolMain({ h1: T("h1") }), article: homeArticle(), faq: true }];
     for (const c of CDNS) {
       const n = c.list ? (c.id === "cfchina" ? POPS.cloudflare.filter(p => p[2] === "CN").length : POPS[c.list].length) : 0, v = { cdn: cname(c), n };
       // a CDN that doesn't say where it answers from gets a latency page: its title can't promise a location

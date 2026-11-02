@@ -88,6 +88,7 @@ export default {
   list_h: "{cdn} 전체 지점 {n}곳",
   list_cn: "그중 {n}곳은 중국 본토에 있으며 China Network에 속합니다.",
   more_cdns: "다른 CDN",
+  hl_cdns: "CDN별 지점", hl_pops: "많이 쓰이는 Cloudflare 지점", hl_n: "지점 {n}곳", hl_read: "지점 확인 가능", hl_timed: "지연 시간 테스트",
 
   pop_title: "{cdn} {city}({code}) 데이터 센터: 위치와 지연 시간 · CDN 레이더",
   pop_desc: "{country}에 있는 {cdn} {city} 지점({code}): 위치, 가까운 지점, 그리고 내가 여기에 연결되는지 테스트.",

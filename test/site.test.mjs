@@ -39,6 +39,14 @@ test("every page keeps the shell contract and its SEO", async () => {
   }
 });
 
+test("the home page links to every CDN's page and the busiest locations", async () => {
+  for (const [lang, slug] of LANGS) {
+    const h = await page(at(slug));
+    for (const c of CDNS) assert.ok(h.includes(`href="/${at(slug, c.id + "/")}"`), lang + ": " + c.id);
+    assert.ok(h.includes(`href="/${at(slug, "cloudflare/hkg/")}"`), lang + ": HKG");
+  }
+});
+
 test("each page has its own title", async () => {
   for (const [lang, slug] of LANGS) {
     const titles = await Promise.all(SAMPLES.map(async d => one(await page(at(slug, d)), /<title>(.*?)<\/title>/)));

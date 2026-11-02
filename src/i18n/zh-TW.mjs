@@ -88,6 +88,7 @@ export default {
   list_h: "{cdn} 全部 {n} 個節點",
   list_cn: "其中 {n} 個在中國大陸，屬於中國網路。",
   more_cdns: "其他 CDN",
+  hl_cdns: "各家 CDN 的節點", hl_pops: "熱門 Cloudflare 節點", hl_n: "{n} 個節點", hl_read: "可讀出節點", hl_timed: "延遲測試",
 
   pop_title: "{cdn} {city}（{code}）節點：位置和延遲 · CDN 雷達",
   pop_desc: "{cdn} 在{country}的 {city} 節點（{code}）：在哪裡、附近有哪些節點，測一測你連的是不是它。",

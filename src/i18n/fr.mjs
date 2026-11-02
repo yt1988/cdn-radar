@@ -88,6 +88,7 @@ export default {
   list_h: "Les {n} sites de {cdn}",
   list_cn: "{n} d’entre eux sont en Chine continentale, sur le China Network.",
   more_cdns: "Autres CDN",
+  hl_cdns: "Les sites de chaque CDN", hl_pops: "Sites Cloudflare les plus fréquentés", hl_n: "{n} sites", hl_read: "site lisible", hl_timed: "test de latence",
 
   pop_title: "Datacenter {cdn} de {city} ({code}) : emplacement et latence · Radar CDN",
   pop_desc: "Le site {code} de {cdn} à {city} ({country}) : où il est, ses voisins les plus proches et un test pour savoir s’il vous sert.",

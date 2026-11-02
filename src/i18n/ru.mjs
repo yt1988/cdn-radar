@@ -88,6 +88,7 @@ export default {
   list_h: "Все точки {cdn}: {n}",
   list_cn: "Из них в материковом Китае, в China Network: {n}.",
   more_cdns: "Другие CDN",
+  hl_cdns: "Точки каждого CDN", hl_pops: "Самые используемые точки Cloudflare", hl_n: "Точек: {n}", hl_read: "точка читается", hl_timed: "тест задержки",
 
   pop_title: "Дата-центр {cdn} {city} ({code}): расположение и задержка · CDN-радар",
   pop_desc: "Точка {cdn} {code}, {city} ({country}): где она, ближайшие соседи и проверка, она ли вас обслуживает.",

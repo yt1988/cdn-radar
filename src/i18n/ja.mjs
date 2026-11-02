@@ -88,6 +88,7 @@ export default {
   list_h: "{cdn} の全 {n} 拠点",
   list_cn: "うち {n} 拠点は中国本土にあり、China Network に属します。",
   more_cdns: "ほかの CDN",
+  hl_cdns: "各 CDN の拠点", hl_pops: "よく使われる Cloudflare 拠点", hl_n: "{n} 拠点", hl_read: "拠点を読み取れる", hl_timed: "遅延テスト",
 
   pop_title: "{cdn} {city}（{code}）データセンター：場所と遅延 · CDN レーダー",
   pop_desc: "{country}にある {cdn} の {city} 拠点（{code}）：場所、近くの拠点、そしてあなたがここにつながるかのテスト。",
