@@ -81,3 +81,15 @@ test("the share dialog is the shell's, unchanged, and loaded only on demand", as
   assert.ok(app.includes('import("/assets/share/share.js")'));
   assert.ok(!/id="shareDlg"/.test(await page("")));
 });
+
+test("the rule sets for proxy clients list every test host, and only those", async () => {
+  const { HOSTS } = await import("../src/cdns.mjs");
+  const file = f => readFile(new URL(`../public/rules/${f}`, import.meta.url), "utf8");
+  const hosts = (text, re) => [...text.matchAll(re)].map(m => m[1]);
+  assert.deepEqual(hosts(await file("clash.yaml"), /^  - DOMAIN,(\S+)$/gm), HOSTS);
+  for (const f of ["surge.list", "loon.list"]) assert.deepEqual(hosts(await file(f), /^DOMAIN,(\S+)$/gm), HOSTS, f);
+  assert.deepEqual(hosts(await file("quanx.list"), /^host, (\S+), direct$/gm), HOSTS);
+  assert.deepEqual(JSON.parse(await file("singbox.json")).rules[0].domain, HOSTS);
+  assert.ok(HOSTS.includes("www.cloudflare.com") && !HOSTS.some(h => h.includes("1ms.dog")));
+  assert.match(await readFile(new URL("../public/_headers", import.meta.url), "utf8"), /\/rules\/\*\n  Access-Control-Allow-Origin: \*\n  Content-Type: text\/plain/);
+});

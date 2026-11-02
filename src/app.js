@@ -51,27 +51,50 @@ import { probe, dns, once, readPop } from "./probe.mjs";
   $$("[data-hstep]").forEach(b => { b.onclick = () => showHelp(helpIdx + +b.dataset.hstep); });
 
   /* ---------- routing rules: every test host direct, or every one through the proxy ---------- */
-  // A page can't pick the route: the visitor's proxy client does. These rules, put at the top of its list, send every
-  // host the test fetches from one way (HOSTS in cdns.mjs). Clash / mihomo; Surge, which Shadowrocket, Stash and Loon
-  // read too; Quantumult X.
-  const RULES = {
-    clash: (h, d) => `- DOMAIN,${h},${d ? "DIRECT" : "PROXY"}`,
-    surge: (h, d) => `DOMAIN,${h},${d ? "DIRECT" : "PROXY"}`,
-    qx: (h, d) => `HOST,${h},${d ? "direct" : "proxy"}`,
-  };
+  // A page can't pick the route: the visitor's proxy client does. Every host the test fetches from (HOSTS in cdns.mjs)
+  // sent one way, first as a remote rule set the client subscribes to (this site's /rules/, built by scripts/build.mjs:
+  // it follows when test hosts change), then as rules to paste. As 1ms.dog's Me2Cloud does.
+  const RULESETS = location.origin + "/rules/";
+  // a policy as each client writes it; "PROXY" / "proxy" stands for the visitor's proxy group
+  const POLICY = (f, d) => f === "quanx" || f === "singbox" ? (d ? "direct" : "proxy") : d ? "DIRECT" : "PROXY";
+  function ruleRemote(f, d) {
+    const p = POLICY(f, d), top = t("rules_top");
+    switch (f) {
+      case "clash": return `rule-providers:\n  cdn-radar:\n    type: http\n    behavior: classical\n    format: yaml\n    url: ${RULESETS}clash.yaml\n    path: ./ruleset/cdn-radar.yaml\n    interval: 86400\n\nrules:\n  - RULE-SET,cdn-radar,${p}   # ${top}`;
+      case "surge": return `[Rule]\n# ${top}\nRULE-SET,${RULESETS}surge.list,${p},update-interval=86400`;
+      case "shadowrocket": return `[Rule]\n# ${top}\nRULE-SET,${RULESETS}surge.list,${p}`;
+      case "quanx": return `[filter_remote]\n${RULESETS}quanx.list, tag=CDN Radar, force-policy=${p}, update-interval=86400, opt-parser=false, enabled=true`;
+      case "loon": return `[Remote Rule]\n${RULESETS}loon.list, policy=${p}, tag=CDN Radar, enabled=true`;
+      case "singbox": return JSON.stringify({ route: { rule_set: [{ tag: "cdn-radar", type: "remote", format: "source", url: RULESETS + "singbox.json", download_detour: "direct", update_interval: "1d" }],
+        rules: [{ rule_set: "cdn-radar", outbound: p }] } }, null, 2);
+    }
+  }
+  function ruleInline(f, d) {
+    const p = POLICY(f, d);
+    if (f === "singbox") return JSON.stringify({ route: { rules: [{ domain: HOSTS, outbound: p }] } }, null, 2);
+    const line = h => f === "clash" ? `  - DOMAIN,${h},${p}` : f === "quanx" ? `host, ${h}, ${p}` : `DOMAIN,${h},${p}`;
+    const head = { clash: "rules:", surge: "[Rule]", shadowrocket: "[Rule]", loon: "[Rule]", quanx: "[filter_local]" }[f];
+    return `${head}\n${f === "clash" ? "  " : ""}# ${t("rules_cmt")}\n` + HOSTS.map(line).join("\n");
+  }
+  const codeBox = (text, i) => `<div class="code"><textarea readonly spellcheck="false" rows="${Math.min(12, text.split("\n").length + 1)}" data-ta="${i}">${esc(text)}</textarea>` +
+    `<button class="btn sm" type="button" data-copyta="${i}"><span>${esc(t("rules_copy"))}</span></button></div>`;
   function fillRules() {
-    const d = $("#rulesMode").value === "d", fmt = $("#rulesFmt").value;
-    $("#rulesTxt").value = [`# ${t("rules_cmt")}`, ...(d ? [] : [`# ${t("rules_proxy_note")}`]), ...HOSTS.map(h => RULES[fmt](h, d))].join("\n");
-    $("#rulesCopy span").textContent = t("rules_copy");
+    const d = $("#rulesMode").value === "d", f = $("#rulesFmt").value;
+    $("#rulesBody").innerHTML = `<section class="rblk"><div class="rblk-h"><b>${esc(t("rules_remote_h"))}</b><span class="m">${esc(t("rules_remote_s"))}</span></div>${codeBox(ruleRemote(f, d), 0)}</section>` +
+      `<details class="rblk"><summary>${esc(t("rules_inline_h", { n: HOSTS.length }))}</summary>${codeBox(ruleInline(f, d), 1)}</details>`;
+    // sentences in Chinese and Japanese follow each other without a space
+    const note = t("rules_note_" + f);
+    $("#rulesNote").textContent = note + (d ? "" : (/[。！？]$/.test(note) ? "" : " ") + t("rules_proxy_note"));
   }
   if ($("#rulesBtn")) {
     $("#rulesBtn").onclick = () => { fillRules(); openDlg("rules"); };
     $("#rulesMode").onchange = fillRules; $("#rulesFmt").onchange = fillRules;
-    $("#rulesCopy").onclick = () => {
-      const copied = () => { $("#rulesCopy span").textContent = t("copied"); };
-      if (navigator.clipboard) navigator.clipboard.writeText($("#rulesTxt").value).then(copied, () => { $("#rulesTxt").select(); });
-      else $("#rulesTxt").select();
-    };
+    $("#rulesBody").addEventListener("click", e => {
+      const b = e.target.closest("[data-copyta]");
+      if (!b) return;
+      const ta = $(`#rulesBody [data-ta="${b.dataset.copyta}"]`), copied = () => { b.querySelector("span").textContent = t("copied"); };
+      if (navigator.clipboard) navigator.clipboard.writeText(ta.value).then(copied, () => ta.select()); else ta.select();
+    });
   }
 
   /* ---------- tooltips (data-why) ---------- */

@@ -9,6 +9,7 @@
 //   assets/app.<hash>.js, .css, l.<lang>.<hash>.js the page's code, styles and strings
 //   assets/pops.<hash>.json, places.<hash>.json   the locations and where codes are (data/), fetched by the page
 //   assets/map.<hash>.svg                         the world's land for the map (world-atlas, Natural Earth 1:110m)
+//   rules/clash.yaml, surge.list, loon.list, quanx.list, singbox.json   the test hosts as rule sets for proxy clients
 //   sitemap.xml (and one per language), robots.txt, llms.txt, _headers
 //   static/…                                      copied as they are: fonts, logos, the share dialog, icons, og/
 // The Worker (src/worker.js: /geo and shared results under /r/) is deployed from source by wrangler.
@@ -19,7 +20,7 @@ import { fileURLToPath } from "node:url";
 import { build as bundle, transform } from "esbuild";
 import { feature } from "topojson-client";
 import { geoEquirectangular, geoPath } from "d3-geo";
-import { CDNS, BY, nameOf } from "../src/cdns.mjs";
+import { CDNS, BY, HOSTS, nameOf } from "../src/cdns.mjs";
 import { km } from "../src/lib.mjs";
 
 const SITE = (process.env.SITE_URL || "https://cdn.1ms.dog").replace(/\/+$/, "");
@@ -45,6 +46,21 @@ const fill = (s, v) => s.replace(/\{(\w+)\}/g, (m, k) => k in v ? v[k] : m);
 const pathOf = (slug, dir = "") => "/" + (slug ? slug + "/" : "") + dir;
 const json = x => JSON.stringify(x).replace(/</g, "\\u003c");
 const EXT = '<svg class="ext" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2.5h4.5V7M13.5 2.5 7.5 8.5M12 10v3.5H2.5V4H6"/></svg>';
+
+// Rule sets of every host the test fetches from (HOSTS), for proxy clients to subscribe to (the page's "Test only
+// direct or only proxy" dialog). They carry no policy: the visitor's config sends them DIRECT or through the proxy.
+// Exact hosts only, so nothing else changes route. As 1ms.dog's Me2Cloud publishes its own.
+function ruleSets() {
+  const head = c => `${c} CDN Radar: the ${HOSTS.length} hosts its test fetches from, to send all one way (direct or proxy).\n${c} ${SITE}/ · https://github.com/yt1988/cdn-radar\n`;
+  const list = line => HOSTS.map(line).join("\n") + "\n";
+  return {
+    "clash.yaml": head("#") + "payload:\n" + list(h => `  - DOMAIN,${h}`),
+    "surge.list": head("#") + list(h => `DOMAIN,${h}`),
+    "loon.list": head("#") + list(h => `DOMAIN,${h}`),
+    "quanx.list": head("#") + list(h => `host, ${h}, direct`),
+    "singbox.json": JSON.stringify({ version: 2, rules: [{ domain: HOSTS }] }, null, 2) + "\n",
+  };
+}
 
 async function loadI18n() {
   const out = {};
@@ -159,10 +175,11 @@ ${tiles}
       ${T("rules_intro").split(/\n+/).map(p => `<p>${esc(p)}</p>`).join("")}
       <div class="rules-f">
         <label><span>${esc(T("rules_mode"))}</span><select id="rulesMode"><option value="d">${esc(T("rules_d"))}</option><option value="p">${esc(T("rules_p"))}</option></select></label>
-        <label><span>${esc(T("rules_fmt"))}</span><select id="rulesFmt"><option value="clash">Clash / mihomo</option><option value="surge">Surge · Shadowrocket · Stash · Loon</option><option value="qx">Quantumult X</option></select></label>
+        <label><span>${esc(T("rules_fmt"))}</span><select id="rulesFmt"><option value="clash">Clash / Mihomo</option><option value="surge">Surge</option><option value="shadowrocket">Shadowrocket</option><option value="quanx">Quantumult X</option><option value="loon">Loon</option><option value="singbox">sing-box</option></select></label>
       </div>
-      <textarea id="rulesTxt" readonly rows="9" spellcheck="false" aria-labelledby="rulesT"></textarea>
-      <div class="rules-a"><p class="m">${esc(T("rules_tip"))}</p><button class="btn pri" id="rulesCopy" type="button"><span>${esc(T("rules_copy"))}</span></button></div>
+      <div id="rulesBody"></div>
+      <p class="m" id="rulesNote"></p>
+      <p class="m">${esc(T("rules_tip"))}</p>
     </div>
   </div>
 </div>
@@ -321,6 +338,7 @@ ${tiles}
 - Test files: ${CDNS.map(c => `${c.id}: ${new URL(c.url).host}`).join("; ")} (Cloudflare falls back to speed.cloudflare.com, then the page's own /cdn-cgi/trace)
 - Source code: https://github.com/yt1988/cdn-radar
 `;
+  for (const [name, text] of Object.entries(ruleSets())) files["rules/" + name] = text;
   // The only inline script is the pre-paint snippet, identical on every page: one hash covers the site. connect-src
   // is https: since the site check asks any site the visitor names.
   const csp = ["default-src 'self'", `script-src 'self' 'sha256-${sha(PREPAINT)}'`, "style-src 'self' 'unsafe-inline'", "font-src 'self'", "img-src 'self' data:",
@@ -358,6 +376,10 @@ ${tiles}
 /llms.txt
   Access-Control-Allow-Origin: *
   Content-Type: text/plain; charset=utf-8
+/rules/*
+  Access-Control-Allow-Origin: *
+  Content-Type: text/plain; charset=utf-8
+  Cache-Control: public, max-age=3600
 `;
 
   await rm(pub, { recursive: true, force: true });
