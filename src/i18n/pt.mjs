@@ -65,6 +65,7 @@ export default {
   cond_q: ", {n} indefinidas",
   cond_mix_end: ". Cada distância parte da saída que aquela linha usou; tempos diretos e por proxy não se comparam.",
   cond_shared: "As regras de roteamento de quem compartilhou mandaram estas CDNs por saídas diferentes; cada uma está marcada como direta (D) ou proxy (P).",
+  ex_site_k: "só este site", ex_site: "Só a requisição a este site saiu por aqui; nenhum teste de CDN passou por esta saída, então ela não afeta os resultados.",
   ex_from_you: "de onde você está", ex_d: "direta",
   ex_p: "proxy",
   ex_edge: "A geolocalização por IP costuma errar a posição de proxies, então este é localizado pela localização da Cloudflare que ele alcança.",

@@ -65,6 +65,7 @@ export default {
   cond_q: ", {n} unclear",
   cond_mix_end: ". Each distance starts at the exit that row took; direct and proxy round trips can't be compared.",
   cond_shared: "The sharer's routing rules sent these CDNs out different exits; each is marked direct (D) or proxy (P).",
+  ex_site_k: "this site only", ex_site: "Only this site's own request took this exit; no CDN's test went through it, so it doesn't affect the results.",
   ex_from_you: "from where you are", ex_d: "direct",
   ex_p: "proxy",
   ex_edge: "IP geolocation often misplaces proxies, so this one is placed by the Cloudflare location it reaches.",

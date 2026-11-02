@@ -33,6 +33,8 @@ a.q0:hover { color: var(--ink); }
 .xcs { display: contents; }
 .xc { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-style: normal; font-weight: 600; }
 .xc span { font-weight: 400; color: var(--muted); }
+.xc.site { color: var(--muted); font-weight: 500; }
+.xc.site b { color: var(--muted); background: var(--soft); }
 .cond-t { margin: 0; font-size: 13.5px; line-height: 1.55; }
 .stat b.two { display: flex; flex-wrap: wrap; gap: 0 10px; font-size: 16px; line-height: 1.7; }
 .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.35fr); gap: 10px; }

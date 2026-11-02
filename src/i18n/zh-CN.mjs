@@ -65,6 +65,7 @@ export default {
   cond_q: "，{n} 家判断不了",
   cond_mix_end: "。每家的距离从它走的出口算；直连和代理的往返时间不能直接比较。",
   cond_shared: "对方的分流规则把这些 CDN 分到了不同出口，每家标了直连（D）或代理（P）。",
+  ex_site_k: "仅本站", ex_site: "只有本站自己的请求走了这个出口，各家 CDN 的测试没有经过它，所以不影响结果。",
   ex_from_you: "从你的位置算", ex_d: "直连",
   ex_p: "代理",
   ex_edge: "代理地址的 IP 定位常常不准，这里按它连到的 Cloudflare 节点定位。",

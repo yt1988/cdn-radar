@@ -95,7 +95,13 @@ export function groupExits(seen, geo) {
 }
 export const exitOfIp = (exits, ip) => ip ? exits.find(e => e.ips.includes(ip)) || exits.find(e => e.ips.some(i => sameNet(i, ip))) || null : null;
 
-// Which exit each row's request took. rows: [{ id, ip?, place?, ms }] (ip: the address its trace saw; place: [city,
+// The exits the CDNs' requests can have taken: the direct ones, and the proxies a CDN's trace was seen using. A proxy
+// only this site's own request took says nothing about the CDNs: rules that send the test hosts direct usually leave
+// this site on the proxy (it is slow direct from some networks). When no CDN's trace answered, all of them.
+const viaCdn = e => e.srcs.some(s => s !== "self" && s !== "cn");
+export const cdnExits = exits => exits.some(viaCdn) ? exits.filter(e => e.kind === "D" || viaCdn(e)) : exits;
+
+// Which exit each row's request took (exits: cdnExits()). rows: [{ id, ip?, place?, ms }] (ip: the address its trace saw; place: [city,
 // cc, lat, lon] of its location); exits: groupExits(); cnVia: the letter of the mainland probe's exit.
 // → id → { x: letter, how } or { x: null } when it can't be told. how, most certain first:
 //   one   there is only one exit

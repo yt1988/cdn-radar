@@ -3,7 +3,7 @@
 // fastest one the distance allows. The map and the verdict follow. A location page (/<cdn>/<code>/) tests its one CDN.
 // Strings: window.L1MS.
 import { CDNS, BY, HOSTS, nameOf, placeOf, popMaps, SITE_HEADERS, SITE_TIMING, PARSE, cdnOfName, isCloudflareIP } from "./cdns.mjs";
-import { km, floorMs, tierOf, detoured, nearest, missedNearest, summary, median, FAST, isFar, groupExits, routes, exitOfIp, sameNet,
+import { km, floorMs, tierOf, detoured, nearest, missedNearest, summary, median, FAST, isFar, groupExits, cdnExits, routes, exitOfIp, sameNet,
   encode as encodeShare, decode as decodeShare, sharePath, hostOf } from "./lib.mjs";
 import { probe, dns, once, readPop } from "./probe.mjs";
 
@@ -180,10 +180,11 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     EX.list = groupExits(EX.seen, geo);
     const cnE = exitOfIp(EX.list, EX.cn);
     EX.rt = routes(LIST.filter(c => R[c.id]).map(c => ({ id: c.id, ip: R[c.id].ip, ms: R[c.id].ms, place: R[c.id].code && DATA.pops ? placeOf(c.id, R[c.id].code, DATA.pops, DATA.places) : null })),
-      EX.list, cnE && cnE.letter);
+      cdnExits(EX.list), cnE && cnE.letter);
   }
-  const exits = () => SHOWN ? SHOWN.exits : EX.list;
-  const exitBy = x => exits().find(e => e.letter === x) || null;
+  // the exits the CDNs' requests can have taken (lib.mjs cdnExits); exitBy finds any, this site's own too
+  const exits = () => SHOWN ? SHOWN.exits : cdnExits(EX.list);
+  const exitBy = x => (SHOWN ? SHOWN.exits : EX.list).find(e => e.letter === x) || null;
 
   /* ---------- the map: the visitor and each location answered, on an equirectangular world (lat 84 to -58) ---------- */
   const X = lon => lon + 180, Y = lat => 84 - Math.max(-58, Math.min(84, lat));
@@ -315,8 +316,10 @@ import { probe, dns, once, readPop } from "./probe.mjs";
   function fillCond(final) {
     const el = $("#cond");
     if (!el) return;
-    const E = exits(), rows = LIST.map(c => rowOf(c.id)).filter(x => x && x.ms != null);
-    const chip = e => `<i class="xc ${e.kind === "D" ? "rd" : "rp"}"${e.edge ? ` data-why="${esc(t("ex_edge"))}" tabindex="0"` : ""}><b>${esc(e.letter)}</b>${esc(t(e.kind === "D" ? "ex_d" : "ex_p"))}` +
+    // the CDNs' exits decide the wording; one only this site went through is listed, marked as such
+    const E = exits(), all = SHOWN ? E : EX.list, rows = LIST.map(c => rowOf(c.id)).filter(x => x && x.ms != null);
+    const why = e => !E.includes(e) ? t("ex_site") : e.edge ? t("ex_edge") : "";
+    const chip = e => `<i class="xc ${e.kind === "D" ? "rd" : "rp"}${E.includes(e) ? "" : " site"}"${why(e) ? ` data-why="${esc(why(e))}" tabindex="0"` : ""}><b>${esc(e.letter)}</b>${esc(t(!E.includes(e) ? "ex_site_k" : e.kind === "D" ? "ex_d" : "ex_p"))}` +
       (exitWhere(e) !== e.letter ? `<span>${esc(exitWhere(e))}${e.org ? " · " + esc(shortOrg(e.org)) : ""}</span>` : "") + `</i>`;
     let txt;
     if (SHOWN) txt = SHOWN.multi ? t("cond_shared") : "";
@@ -326,7 +329,7 @@ import { probe, dns, once, readPop } from "./probe.mjs";
       const n = k => rows.filter(r => r.route.x && r.route.x[0] === k).length, q = rows.filter(r => !r.route.x).length;
       txt = t("cond_mix", { d: n("D"), p: n("P") }) + (q ? t("cond_q", { n: q }) : "") + t("cond_mix_end");
     }
-    $("#condEx").innerHTML = SHOWN ? "" : E.map(chip).join("");
+    $("#condEx").innerHTML = SHOWN ? "" : all.map(chip).join("");
     $("#condTxt").textContent = txt || " ";
     el.hidden = !txt && !E.length;
   }
@@ -605,7 +608,7 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     const S = LAST.shared || null, m = S ? S.where : me();
     // each row with the exit it took (the letter only: no address), and the exits' places when the sharer shows theirs
     const rows = S ? S.rows : LIST.map(c => R[c.id] ? { id: c.id, code: R[c.id].code, ms: R[c.id].ms, route: EX.list.length ? EX.rt[c.id] : null } : null).filter(Boolean);
-    const exs = S ? S.exits : EX.list.filter(e => e.kind === "P");
+    const exs = S ? S.exits : exits().filter(e => e.kind === "P");
     const site = S ? S.site : SITE ? { cdn: SITE.cdn, code: SITE.code, ms: SITE.ms, host: SITE.host } : null;
     const isp = S ? S.isp : m && m.org || "";
     const where = m && m.cc ? { cc: m.cc, lat: m.lat, lon: m.lon, city: m.city || "" } : null;

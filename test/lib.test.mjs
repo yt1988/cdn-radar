@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { CDNS, PARSE, placeOf, popMaps, cdnOfName, isCloudflareIP } from "../src/cdns.mjs";
-import { km, floorMs, tierOf, detoured, nearest, missedNearest, summary, encode, decode, sharePath, hostOf, groupExits, routes } from "../src/lib.mjs";
+import { km, floorMs, tierOf, detoured, nearest, missedNearest, summary, encode, decode, sharePath, hostOf, groupExits, cdnExits, routes } from "../src/lib.mjs";
 
 const pops = popMaps(JSON.parse(await readFile(new URL("../data/pops.json", import.meta.url), "utf8")));
 const places = JSON.parse(await readFile(new URL("../data/places.json", import.meta.url), "utf8"));
@@ -162,6 +162,20 @@ test("routes: which exit each CDN's request took, and how that was told", () => 
   assert.deepEqual(routes([{ id: "gcore", ms: 88 }], E.slice(0, 1), "D").gcore, { x: "D", how: "one" });
   // the verdict leaves out the rows it can't place
   assert.equal(summary([{ id: "akamai", ms: 173, d: 8000, unsure: true }, { id: "cloudflare", ms: 20, d: 100 }]).located, 1);
+});
+
+test("a proxy only this site went through doesn't split the CDNs (the test hosts ruled direct, this site not)", () => {
+  // every CDN trace saw the visitor's own line; only this site's request (/_ms/me) took the proxy
+  const E = groupExits([{ ip: "114.254.1.2", src: "cn" }, { ip: "45.76.1.2", src: "self" }, { ip: "114.254.9.9", src: "cloudflare" }, { ip: "114.254.7.7", src: "cfchina" }],
+    { "114.254.1.2": HEBEI, "45.76.1.2": VPS });
+  assert.deepEqual(E.map(e => e.letter), ["D", "P"]);
+  const C = cdnExits(E);
+  assert.deepEqual(C.map(e => e.letter), ["D"]);
+  // Tokyo is far nearer the proxy, but the proxy carried no CDN: direct, like the rest
+  assert.deepEqual(routes([{ id: "cloudfront", place: placeOf("cloudfront", "NRT", pops, places), ms: 63 }], C, "D").cloudfront, { x: "D", how: "one" });
+  // a proxy a CDN's trace saw stays; with no trace answering at all, every exit counts
+  assert.equal(cdnExits(split()).length, 2);
+  assert.equal(cdnExits(groupExits([{ ip: "114.254.1.2", src: "cn" }, { ip: "45.76.1.2", src: "self" }], { "114.254.1.2": HEBEI, "45.76.1.2": VPS })).length, 2);
 });
 
 test("a result's routes survive its link, and the exits' places only with the visitor's", () => {
