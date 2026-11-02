@@ -60,16 +60,24 @@ test("distances and what they mean", () => {
   assert.ok(!missedNearest(140, n));
 });
 
-test("the verdict", () => {
-  const near = { id: "cloudflare", code: "HKG", place: ["Hong Kong"], ms: 8, d: 20 };
-  const far = { id: "akamai", code: "GB-LONDON", place: ["London"], ms: 200, d: 9600 };
-  assert.equal(summary([near]).key, "v_allnear");
-  assert.equal(summary([near, far]).key, "v_somefar");
-  assert.equal(summary([far, { ...far, id: "fastly" }, near]).key, "v_mostfar");
+test("the verdict and what stands out", () => {
+  const near = { id: "cloudflare", code: "HKG", place: ["Hong Kong", "HK"], ms: 8, d: 20 };
+  const far = { id: "akamai", code: "GB-LONDON", place: ["London", "GB"], ms: 200, d: 9600 };
+  const s1 = summary([near, { ...near, id: "fastly" }, { ...near, id: "bunny" }, far]);
+  assert.equal(s1.key, "v_good");
+  assert.deepEqual([s1.near, s1.far, s1.located], [3, 1, 4]);
+  assert.equal(s1.farthest.id, "akamai");
+  assert.deepEqual(s1.findings.map(f => f.key), ["f_far", "f_fast"]);
+  assert.equal(summary([near, far]).key, "v_mixed");
+  assert.equal(summary([far, { ...far, id: "fastly" }, { ...far, id: "azure" }, near]).key, "v_far");
+  assert.equal(summary([far, { ...far, id: "fastly", d: 9000 }, { ...far, id: "azure", d: 8000 }, near]).findings.find(f => f.key === "f_more").n, 1);
+  // near, but a round trip far beyond what 20 km needs: the path goes a long way round
+  assert.equal(summary([{ ...near, ms: 180 }]).findings[0].key, "f_slowpath");
   assert.equal(summary([{ ...near, d: null }]).key, "v_noloc");
-  assert.equal(summary([{ id: "google", ms: null }]).key, "v_none");
-  // the fastest that said where it is, over a faster one that didn't
-  assert.equal(summary([near, { id: "alibaba", ms: 3, d: null }]).best.id, "cloudflare");
+  const none = summary([{ id: "google", ms: null }]);
+  assert.equal(none.key, "v_none");
+  assert.deepEqual(none.findings, [{ kind: "bad", key: "f_fail", ids: ["google"] }]);
+  assert.equal(summary([near, { id: "alibaba", ms: 6, d: null }]).med, 7);
 });
 
 test("a result survives its link", () => {

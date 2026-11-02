@@ -3,7 +3,7 @@
 // fastest one the distance allows. The map and the verdict follow. A location page (/<cdn>/<code>/) tests its one CDN.
 // Strings: window.L1MS.
 import { CDNS, BY, nameOf, placeOf, popMaps, SITE_HEADERS, SITE_TIMING, PARSE, cdnOfName, isCloudflareIP } from "./cdns.mjs";
-import { km, floorMs, tierOf, detoured, nearest, missedNearest, summary, encode as encodeShare, decode as decodeShare, sharePath, hostOf } from "./lib.mjs";
+import { km, floorMs, tierOf, detoured, nearest, missedNearest, summary, FAST, encode as encodeShare, decode as decodeShare, sharePath, hostOf } from "./lib.mjs";
 import { probe, dns, once, readPop } from "./probe.mjs";
 
 (function () {
@@ -116,12 +116,14 @@ import { probe, dns, once, readPop } from "./probe.mjs";
   }
 
   /* ---------- results ---------- */
-  const ROW = Object.fromEntries($$(".cr[data-c]").map(r => [r.dataset.c, r]));
+  const ROW = Object.fromEntries($$(".cr[data-c], .tt[data-c]").map(r => [r.dataset.c, r]));
   const LIST = D.kind === "pop" ? [BY[D.cdn]] : CDNS;
   let R = {};            // results so far, by CDN id: { ms, code, err, loc? }
   let SHOWN = null;      // a shared result being shown: its visitor location (or null)
   let SITE = null;       // the site check's result
   const me = () => SHOWN ? SHOWN.where : U;
+  const listFmt = (() => { try { return new Intl.ListFormat(D.lang, { type: "conjunction" }); } catch (e) { return { format: a => a.join(", ") }; } })();
+  const names = ids => listFmt.format(ids.map(cdnName));
 
   // a row's result with its place, distance and flags
   function rowOf(id) {
@@ -134,77 +136,103 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     return { id, code: x.code, ms: x.ms, err: x.err, place, d, near, loc: x.loc };
   }
 
+  // a round trip's color: near (t1) to far (t5)
+  const msTier = ms => ms < FAST ? "t1" : ms < 80 ? "t2" : ms < 150 ? "t3" : ms < 250 ? "t4" : "t5";
+  const tag = (txt, cls, why) => `<i class="tag ${cls}"${why ? ` data-why="${esc(why)}" tabindex="0"` : ""}>${esc(txt)}</i>`;
+  // the bars share one scale: the slowest so far, at least 200 ms
+  const scale = () => Math.max(200, ...Object.values(R).filter(x => x.ms != null).map(x => x.ms));
+  const barHTML = ms => `<i class="rb"><i class="${msTier(ms)}" style="transform:scaleX(${Math.max(.02, Math.min(1, ms / scale())).toFixed(3)})"></i></i>`;
+
   function fillRow(id) {
     const row = ROW[id];
     if (!row) return;
     const x = rowOf(id), cdn = BY[id];
-    const [pb, ps] = row.querySelectorAll(".cp b, .cp span"), [db, ds] = row.querySelectorAll(".cd b, .cd span"), [mb, ms] = row.querySelectorAll(".cm b, .cm span");
-    const sub = row.querySelector(".cn > span");
     row.classList.toggle("wait", !x);
     row.classList.toggle("bad", !!x && x.ms == null);
-    ds.className = ""; ms.className = ""; ds.removeAttribute("data-why"); ms.removeAttribute("data-why"); ds.tabIndex = -1; ms.tabIndex = -1;
-    if (!x) { pb.textContent = "…"; ps.innerHTML = "&nbsp;"; db.textContent = "…"; ds.innerHTML = "&nbsp;"; mb.textContent = "…"; ms.innerHTML = "&nbsp;"; return; }
-    // where it answered from
-    if (x.code) {
-      const c = popCode(id, x.code), href = cdn.list && D.popHref ? D.popHref[id === "cfchina" ? "cloudflare" : cdn.list] : null;
-      pb.innerHTML = c ? (href && x.place ? `<a href="${esc(href + x.code.toLowerCase() + "/")}">${esc(c)}</a>` : esc(c)) : esc(x.place ? x.place[0] : x.code);
-      ps.textContent = x.place ? (c ? placeTxt(x.place) : country(x.place[1])) : t("r_unknown");
-    } else {
-      pb.textContent = "—";
-      ps.textContent = x.ms == null ? t(x.err === "timeout" ? "r_timeout" : "r_fail") : cdn.read ? t("r_nopop") : t("r_hidden");
+    const failTxt = x && t(x.err === "timeout" ? "r_timeout" : "r_fail");
+    // timed only: a tile
+    if (row.classList.contains("tt")) {
+      row.querySelector("b").textContent = !x ? "…" : x.ms == null ? failTxt : msTxt(x.ms);
+      row.querySelector("b").className = x && x.ms != null ? msTier(x.ms) : "";
+      row.querySelector(".rb").outerHTML = x && x.ms != null ? barHTML(x.ms) : `<i class="rb"><i></i></i>`;
+      return;
     }
+    const cp = row.querySelector(".cp"), cd = row.querySelector(".cd"), cm = row.querySelector(".cm"), via = row.querySelector(".via");
+    if (!x) { cp.innerHTML = "<b>…</b>"; cd.innerHTML = "<b>…</b>"; cm.innerHTML = `<b>…</b><i class="rb"><i></i></i>`; if (via) via.hidden = true; return; }
+    // where it answered from, and whether that is the CDN's nearest location
+    if (x.code) {
+      const c = popCode(id, x.code), href = cdn.list && D.popHref ? D.popHref[cdn.list] : null;
+      const code = c ? (href && x.place ? `<a href="${esc(href + x.code.toLowerCase() + "/")}">${esc(c)}</a>` : esc(c)) : esc(x.place ? x.place[0] : x.code);
+      const missed = x.d != null && missedNearest(x.d, x.near)
+        ? " " + tag(t("f_notnearest"), "warn", t("f_notnearest_tip", { cdn: cdnName(id), code: popCode(id, x.near[0]), place: placeTxt(x.near[1]), km: kmTxt(x.near[2]) })) : "";
+      cp.innerHTML = `<b>${code}</b> <span>${esc(x.place ? (c ? placeTxt(x.place) : country(x.place[1])) : t("r_unknown"))}</span>${missed}`;
+    } else cp.innerHTML = x.ms == null ? `<span class="bad">${esc(failTxt)}</span>` : `<b>—</b> <span>${esc(t("r_nopop"))}</span>`;
     // how far
-    if (x.d != null) {
-      const tier = tierOf(x.d);
-      db.textContent = kmTxt(x.d); db.className = tier[1];
-      if (missedNearest(x.d, x.near)) {
-        ds.textContent = t("f_notnearest"); ds.className = "warn";
-        ds.dataset.why = t("f_notnearest_tip", { cdn: cdnName(id), code: popCode(id, x.near[0]), place: placeTxt(x.near[1]), km: kmTxt(x.near[2]) }); ds.tabIndex = 0;
-      } else ds.textContent = t("d_" + tier[2]);
-    } else { db.textContent = "—"; db.className = ""; ds.textContent = x.code && !me() && !SHOWN ? t("r_noloc") : " "; }
-    // how long, and the least the distance allows
+    if (x.d != null) { const tier = tierOf(x.d); cd.innerHTML = `<b class="${tier[1]}">${esc(kmTxt(x.d))}</b> ${tag(t("d_" + tier[2]), tier[1])}`; }
+    else cd.innerHTML = `<b>—</b>`;
+    // how long: the least the distance allows on hover, "long way round" when it is far beyond that
     if (x.ms != null) {
-      mb.textContent = msTxt(x.ms);
-      if (x.d != null && detoured(x.ms, x.d)) {
-        ms.textContent = t("f_slow"); ms.className = "warn";
-        ms.dataset.why = t("f_slow_tip", { floor: msTxt(floorMs(x.d)), km: kmTxt(x.d) }); ms.tabIndex = 0;
-      } else ms.textContent = x.d != null ? t("r_floor", { ms: fmtMs(floorMs(x.d)) }) : " ";
-    } else { mb.textContent = "—"; ms.innerHTML = "&nbsp;"; }
+      const floor = x.d != null ? t("r_floor", { ms: fmtMs(floorMs(x.d)) }) : "";
+      const slow = x.d != null && detoured(x.ms, x.d) ? tag(t("f_slow"), "warn", t("f_slow_tip", { floor: msTxt(floorMs(x.d)), km: kmTxt(x.d) })) + " " : "";
+      cm.innerHTML = `<b><span>${slow}</span><span${floor ? ` data-why="${esc(floor)}"` : ""}>${esc(msTxt(x.ms))}</span></b>${barHTML(x.ms)}`;
+    } else cm.innerHTML = `<b>—</b><i class="rb"><i></i></i>`;
     // through another exit than the page's (a proxy that carries this CDN): Cloudflare's trace says from where
-    if (sub && x.loc && me() && me().cc && x.loc !== me().cc && !SHOWN) {
-      sub.textContent = t("r_via", { where: country(x.loc) }); sub.className = "via";
-      sub.dataset.why = t("r_via_tip", { where: country(x.loc) }); sub.tabIndex = 0;
+    if (via) {
+      const other = x.loc && me() && me().cc && x.loc !== me().cc && !SHOWN;
+      via.hidden = !other;
+      if (other) { via.textContent = t("r_via", { where: country(x.loc) }); via.dataset.why = t("r_via_tip", { where: country(x.loc) }); via.tabIndex = 0; }
     }
   }
 
-  // the hero: the verdict, the fastest and the farthest, the map
+  // the hero: the verdict, four numbers, and what stands out
+  const ICON = { ok: '<path d="M3.5 8.5l3 3 6-7"/>', warn: '<path d="M8 3.5v5.5M8 12v.5"/>', bad: '<path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/>' };
+  function finding(f) {
+    const r = f.row;
+    if (f.key === "f_fail") return t("f_fail", { list: names(f.ids) });
+    if (f.key === "f_fast") return t("f_fast", { list: names(f.ids), ms: msTxt(FAST) });
+    if (f.key === "f_more") return t("f_more", { n: f.n });
+    if (f.key === "f_slowpath") return t("f_slowpath", { cdn: cdnName(r.id), place: placeTxt(r.place), km: kmTxt(r.d), ms: msTxt(r.ms), floor: msTxt(floorMs(r.d)) });
+    const head = t("f_far", { cdn: cdnName(r.id), place: placeTxt(r.place), km: kmTxt(r.d), ms: msTxt(r.ms) });
+    // sentences in Chinese and Japanese follow each other without a space
+    return head + (missedNearest(r.d, r.near) ? (/[。！？]$/.test(head) ? "" : " ") + t("f_far_near", { near: [popCode(r.id, r.near[0]), placeTxt(r.near[1])].filter(Boolean).join(" · "), km: kmTxt(r.near[2]) }) : "");
+  }
   function hero(final) {
     const rows = LIST.map(c => rowOf(c.id)).filter(Boolean);
     drawMap(rows, me());
-    if (!final || D.kind === "pop") return;
-    const s = summary(rows), v = $("#verdict");
+    const v = $("#verdict");
+    if (D.kind === "pop" || !v) return;
+    if (!final) { v.textContent = t("v_wait"); v.className = "verdict"; return; }
+    const s = summary(LIST.map(c => rowOf(c.id) || { id: c.id, ms: null }));
     // a shared result without its place: no distances, by the sharer's choice
     if (SHOWN && !me() && s.key === "v_noloc") s.key = "v_hidden";
-    v.textContent = t(s.key, { n: s.far.length });
-    v.className = "verdict " + (s.key === "v_allnear" ? "t1" : s.key === "v_none" ? "bad" : s.key === "v_noloc" || s.key === "v_hidden" ? "" : "warn");
-    const bits = [];
-    if (s.best) bits.push(t("p_best", { cdn: cdnName(s.best.id), pop: s.best.place ? placeTxt(s.best.place) : popCode(s.best.id, s.best.code) || "—", ms: msTxt(s.best.ms) }));
-    const far = [...s.far].sort((a, b) => b.d - a.d)[0];
-    if (far) bits.push(t("p_far", { cdn: cdnName(far.id), pop: placeTxt(far.place), km: kmTxt(far.d) }));
-    $("#probs").textContent = bits.join(" ") || " ";
+    v.textContent = t(s.key);
+    v.className = "verdict " + ({ v_good: "t1", v_mixed: "warn", v_far: "bad", v_none: "bad" }[s.key] || "");
+    $("#vsub").textContent = s.located ? t("v_sub", { n: s.located, near: s.near, far: s.far }) : " ";
+    $("#stNear").textContent = s.located ? `${s.near} / ${s.located}` : "–";
+    $("#stNear").className = s.located ? (s.near * 4 >= s.located * 3 ? "t1" : s.near * 3 <= s.located ? "t5" : "t3") : "";
+    const n = LIST.filter(c => R[c.id] && R[c.id].ms != null).length;
+    $("#stMed").textContent = s.med != null ? msTxt(s.med) : "–";
+    $("#stMed").className = s.med != null ? msTier(s.med) : "";
+    $("#stMedS").textContent = t("st_med_s", { n });
+    const f = s.farthest;
+    $("#stFar").textContent = f ? kmTxt(f.d) : "–";
+    $("#stFar").className = f ? tierOf(f.d)[1] : "";
+    $("#stFarS").textContent = f ? `${cdnName(f.id)} · ${f.place[0]}` : " ";
+    const items = s.findings.length ? s.findings : [{ kind: "ok", key: "f_none" }];
+    $("#finds").innerHTML = items.map(x => `<li class="${x.kind}"><svg viewBox="0 0 16 16" aria-hidden="true">${ICON[x.kind]}</svg><span>${esc(x.key === "f_none" ? t("f_none") : finding(x))}</span></li>`).join("");
   }
 
-  // the visitor's line: city, country, network
+  // the visitor: city and country, and their network
   function fillYou() {
-    const el = $("#you");
+    const el = $("#you"), net = $("#youNet");
     if (!el) return;
     const m = me();
-    if (SHOWN) { el.textContent = m ? [m.city, country(m.cc)].filter(Boolean).join(", ") : t("you_hidden"); return; }
+    if (SHOWN) { el.textContent = m ? [m.city, country(m.cc)].filter(Boolean).join(", ") : t("you_hidden"); if (net) net.textContent = SHOWN.isp || ""; return; }
     if (!m) { el.textContent = t("you_unknown"); return; }
-    const where = [m.city, country(m.cc)].filter(Boolean).join(", ");
+    el.innerHTML = esc([m.city, country(m.cc)].filter(Boolean).join(", ")) + (m.precise ? ` ${tag(t("precise_on"), "t1")}` : "");
     // its network on ASN Lookup: a value made into a link, so a dotted underline and a title, not the external-link mark
-    const net = m.asn ? (ASN ? `<a class="q0" href="${esc(ASN + "AS" + m.asn)}" title="${esc(t("asn_t"))}" target="_blank" rel="noopener">AS${m.asn}</a>` : "AS" + m.asn) : "";
-    el.innerHTML = esc(where) + (m.org || net ? ` <span class="m">· ${esc(m.org || "")}${m.org && net ? " " : ""}${net}</span>` : "") + (m.precise ? ` <span class="tag">${esc(t("precise_on"))}</span>` : "");
+    const as = m.asn ? (ASN ? `<a class="q0" href="${esc(ASN + "AS" + m.asn)}" title="${esc(t("asn_t"))}" target="_blank" rel="noopener">AS${m.asn}</a>` : "AS" + m.asn) : "";
+    if (net) { net.innerHTML = [esc((m.org || "").replace(/\s+(Private\s+)?(Limited|Ltd\.?|Inc\.?|LLC|Co\.,? Ltd\.?|Corporation)$/i, "")), as].filter(Boolean).join(" "); net.title = m.org || ""; }
   }
 
   const total = LIST.length;
@@ -226,7 +254,6 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     if ($("#shareBtn")) $("#shareBtn").disabled = true;
     if ($("#rerun")) $("#rerun").disabled = true;
     $("#prog") && $("#prog").classList.remove("end");
-    if ($("#verdict")) { $("#verdict").textContent = t("v_wait"); $("#verdict").className = "verdict"; $("#probs").innerHTML = "&nbsp;"; }
     redraw(); progress();
     await Promise.all([popsP, placesP]);
     geoP.then(() => { if (!ctl.signal.aborted) redraw(); });
@@ -290,9 +317,8 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     const ctl = SCTL = new AbortController(), sig = ctl.signal;
     const res = $("#siteRes"), out = { host, cdn: null, code: null, ms: null, cname: null };
     SITE = null;
-    res.className = "site-res wait";
-    res.innerHTML = `<b>${esc(host)}</b><span>${esc(t("s_wait"))}</span>`;
-    $("#askBtn").disabled = false;
+    res.hidden = false; res.className = "site-res wait"; res.title = "";
+    res.innerHTML = `<b class="host">${esc(host)}</b><span class="m">${esc(t("s_wait"))}</span>`;
     // the DNS: a CNAME that names the CDN, or one of Cloudflare's addresses
     const dp = dns(host, sig).then(d => {
       if (!d) return;
@@ -333,31 +359,24 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     const place = x.code && BY[x.cdn] ? placeOf(x.cdn, x.code, DATA.pops || {}, DATA.places) : null, m = me();
     const d = place && m && m.lat != null ? km(m.lat, m.lon, place[2], place[3]) : null;
     const cdn = x.cdn ? cdnName(x.cdn) : null;
+    // the site, then what was found: its CDN, the location that answered, how far, how long
     const bits = [
-      cdn ? t("s_cdn", { cdn }) : t("s_nocdn"),
-      x.code ? t("s_pop", { pop: [popCode(x.cdn, x.code), placeTxt(place)].filter(Boolean).join(" · ") || x.code }) : cdn ? t("s_nopop") : "",
-      d != null ? kmTxt(d) : "", x.ms != null ? msTxt(x.ms) : t("r_fail"),
+      cdn ? `<i class="chip" style="--c:${BY[x.cdn] ? BY[x.cdn].c : "var(--muted)"}"><i class="dot"></i>${esc(cdn)}</i>` : `<span class="m">${esc(t("s_nocdn"))}</span>`,
+      x.code ? `<span><b>${esc(popCode(x.cdn, x.code) || (place && place[0]) || x.code)}</b> ${esc(place ? (popCode(x.cdn, x.code) ? placeTxt(place) : country(place[1])) : "")}</span>` : cdn ? `<span class="m">${esc(t("s_nopop"))}</span>` : "",
+      d != null ? `<b class="${tierOf(d)[1]}">${esc(kmTxt(d))}</b>` : "",
+      x.ms != null ? `<b class="${msTier(x.ms)}">${esc(msTxt(x.ms))}</b>` : `<span class="bad">${esc(t("r_fail"))}</span>`,
     ].filter(Boolean);
-    res.className = "site-res" + (x.ms == null ? " bad" : "");
-    res.innerHTML = `<b>${esc(x.host)}</b><span>${esc(bits.join(" · "))}</span>`;
+    res.className = "site-res";
+    res.innerHTML = `<b class="host">${esc(x.host)}</b>${bits.join('<i class="sep"></i>')}`;
     res.title = x.cname ? "CNAME " + x.cname : "";
   }
   if (siteForm) {
     siteForm.onsubmit = e => {
       e.preventDefault();
-      const h = hostOf($("#siteIn").value);
-      if (!h) { $("#siteRes").className = "site-res bad"; $("#siteRes").innerHTML = `<b>&nbsp;</b><span>${esc(t("s_bad"))}</span>`; return; }
+      const h = hostOf($("#siteIn").value), res = $("#siteRes");
+      if (!h) { res.hidden = false; res.className = "site-res"; res.innerHTML = `<span class="bad">${esc(t("s_bad"))}</span>`; return; }
       $("#siteIn").value = h;
       checkSite(h);
-    };
-    // a link for someone else to open: it tests their network against this site, and they send back the result
-    $("#askBtn").onclick = () => {
-      const h = hostOf($("#siteIn").value);
-      if (!h) { $("#siteIn").focus(); return; }
-      const url = location.origin + D.home + "?site=" + encodeURIComponent(h);
-      const b = $("#askBtn"), old = b.querySelector("span").textContent;
-      (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(() => { b.querySelector("span").textContent = t("copied"); }, () => { prompt(t("ask_copy"), url); })
-        .finally(() => setTimeout(() => { b.querySelector("span").textContent = old; }, 1600));
     };
   }
 
@@ -411,7 +430,7 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     x.textBaseline = "alphabetic"; x.textAlign = "left";
     x.fillStyle = C.fg; x.font = `750 40px ${F}`; x.fillText(clip(x, $("#verdict") ? $("#verdict").textContent : t("app_name"), W - 2 * P), P, y);
     y += 46;
-    x.fillStyle = C.muted; x.font = `500 22px ${F}`; x.fillText(clip(x, $("#probs") ? $("#probs").textContent : "", W - 2 * P), P, y);
+    x.fillStyle = C.muted; x.font = `500 22px ${F}`; x.fillText(clip(x, $("#vsub") ? $("#vsub").textContent : "", W - 2 * P), P, y);
     y += 50;
     const colW = (W - 2 * P - 40) / 2;
     rows.forEach((r, i) => {

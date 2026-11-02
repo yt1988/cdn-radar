@@ -35,17 +35,38 @@ export function nearest(map, lat, lon, skip) {
 // site's plan, or the network's peering). 1000 km and twice the distance, so that a neighboring city doesn't count.
 export const missedNearest = (d, near) => !!near && d - near[2] > 1000 && d > near[2] * 2;
 
-// What the results say together, once all are in: rows = [{ id, code, place, ms, d }] (d: km, when the visitor's
-// location is known). → { key, n, far, best, worst }
+export const median = a => { const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length ? s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2 : null; };
+
+// A location that serves the visitor badly: 1500 km or more away, or a round trip far beyond what its distance needs
+export const isFar = r => r.d >= 1500 || detoured(r.ms, r.d);
+export const FAST = 30;   // ms: a round trip this short is a nearby edge, whatever the distance says
+
+// What the results say together: rows = [{ id, code, place, ms, d, near }] (d: km when the visitor's location is
+// known; near: the CDN's nearest location, when its list is known). →
+//   key       the headline: v_good (three in four located ones nearby), v_mixed, v_far, v_noloc, v_none
+//   near/far  how many located ones are nearby / far; located: how many say where they are; med: the median round trip
+//   farthest  the located row farthest away
+//   findings  what to tell, most important first, at most four: [{ kind: "bad" | "warn" | "ok", key, ids?, row?, n? }]
+//             f_fail      these didn't answer
+//             f_far       this one serves from far away (row.near set when it isn't its nearest location)
+//             f_slowpath  this one is near, but the round trip is much longer than the distance needs
+//             f_more      n more serve from far away
+//             f_fast      these answer within FAST ms
 export function summary(rows) {
-  const ok = rows.filter(r => r.ms != null);
-  if (!ok.length) return { key: "v_none", n: 0, far: [] };
+  const ok = rows.filter(r => r.ms != null), failed = rows.filter(r => r.ms == null);
+  const findings = [];
+  if (failed.length) findings.push({ kind: "bad", key: "f_fail", ids: failed.map(r => r.id) });
+  if (!ok.length) return { key: "v_none", near: 0, far: 0, located: 0, med: null, farthest: null, findings };
   const located = ok.filter(r => r.d != null);
-  const far = located.filter(r => r.d >= 1500 || detoured(r.ms, r.d));
-  // the fastest of those that said where they are (a time without a place says little)
-  const placed = ok.filter(r => r.place), best = [...(placed.length ? placed : ok)].sort((a, b) => a.ms - b.ms)[0], worst = [...ok].sort((a, b) => b.ms - a.ms)[0];
-  const key = !located.length ? "v_noloc" : !far.length ? "v_allnear" : far.length * 2 > located.length ? "v_mostfar" : "v_somefar";
-  return { key, n: ok.length, far, best, worst };
+  const far = located.filter(isFar).sort((a, b) => b.d - a.d), near = located.filter(r => !isFar(r));
+  for (const r of far.slice(0, 2)) findings.push({ kind: "warn", key: r.d >= 1500 ? "f_far" : "f_slowpath", row: r });
+  if (far.length > 2) findings.push({ kind: "warn", key: "f_more", n: far.length - 2 });
+  const fast = ok.filter(r => r.ms < FAST).sort((a, b) => a.ms - b.ms);
+  if (fast.length) findings.push({ kind: "ok", key: "f_fast", ids: fast.map(r => r.id) });
+  const share = located.length ? near.length / located.length : 0;
+  const key = !located.length ? "v_noloc" : share >= .75 ? "v_good" : share <= .34 ? "v_far" : "v_mixed";
+  const farthest = [...located].sort((a, b) => b.d - a.d)[0] || null;
+  return { key, near: near.length, far: far.length, located: located.length, med: median(ok.map(r => r.ms)), farthest, findings: findings.slice(0, 4) };
 }
 
 /* ---------- a result in a link: /r/<code>, or /<lang folder>/r/<code> ---------- */

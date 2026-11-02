@@ -35,7 +35,7 @@ test("every page keeps the shell contract and its SEO", async () => {
     assert.ok(h.includes(`og:image" content="${SITE}/og/${lang.toLowerCase()}.png"`), what + ": og:image");
     assert.equal((h.match(/<h1>/g) || []).length, 1, what + ": one h1");
     JSON.parse(one(h, /<script type="application\/ld\+json">(.*?)<\/script>/));
-    if (dir === "" || dir.split("/").length === 2) assert.equal((h.match(/<div class="cr wait[^"]*" data-c="/g) || []).length, CDNS.length, what + ": every CDN's row");
+    if (dir === "" || dir.split("/").length === 2) assert.equal((h.match(/<div class="(?:cr|tt) wait[^"]*" data-c="/g) || []).length, CDNS.length, what + ": every CDN's row or tile");
   }
 });
 

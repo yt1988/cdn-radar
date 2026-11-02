@@ -52,10 +52,10 @@ async function loadI18n() {
 
 // Strings only the build uses (the page has them already); the rest go to the browser
 const BUILD_ONLY = new Set(["name", "seo_title", "seo_desc", "seo_kw", "og_sub", "h1", "docs", "lang_label", "faq_h", "h_cdns", "cdns_sub", "c_cdn", "c_pop",
-  "c_dist", "c_ms", "n_pops", "n_read", "n_hidden", "you_k", "precise", "h_site", "site_sub", "site_ph", "site_go", "ask", "ask_sub", "egress_link", "cost_link",
+  "c_dist", "c_ms", "h_timed", "st_near", "st_near_s", "st_med", "st_far", "you_k", "precise", "h_site", "site_ph", "site_go", "egress_link", "cost_link",
   "speed_link", "home_link", "share_title", "share_desc", "cdn_title", "cdn_desc", "cdn_desc_list", "cdn_kw", "cdn_h1", "cdn_og", "how_h", "how_trace", "how_header",
   "how_timing", "how_none", "list_h", "list_cn", "more_cdns", "pop_title", "pop_desc", "pop_kw", "pop_h1", "pop_intro", "f_code", "f_city", "f_country",
-  "f_coord", "f_net", "pop_cn", "pop_global", "near_h", "cc_h", "crumb_all"]);
+  "f_coord", "f_net", "pop_cn", "pop_global", "near_h", "cc_h"]);
 
 // The map's land: Natural Earth 1:110m (world-atlas), on an equirectangular world from 84°N to 58°S, 1 unit a degree
 async function mapSvg() {
@@ -96,26 +96,29 @@ export async function build() {
     const popHref = Object.fromEntries(LISTS.map(l => [l, pathOf(slug, l + "/")]));
     const linkOut = (id, k) => `<a id="${id}" hidden target="_blank" rel="noopener"><span>${esc(T(k))}</span>${EXT}</a>`;
 
-    // the test: the hero with the map and the verdict, one row per CDN (the page's own CDN first), the site check
+    // One CDN whose location is read: name, location, distance, and the round trip with a bar; filled as it answers
+    const rowHTML = (c, me) => `<div class="cr wait${me ? " me" : ""}" data-c="${c.id}" style="--c:${c.c}"><span class="cn"><i class="dot"></i><a href="${pathOf(slug, c.id + "/")}">${esc(cname(c))}</a><em class="via" hidden></em></span>` +
+      `<span class="cp"><b>…</b> <span></span></span><span class="cd"><b>…</b></span><span class="cm"><b>…</b><i class="rb"><i></i></i></span></div>`;
+    // One CDN that is timed only: a tile with its round trip
+    const tileHTML = (c, me) => `<div class="tt wait${me ? " me" : ""}" data-c="${c.id}" style="--c:${c.c}"><a href="${pathOf(slug, c.id + "/")}"><i class="dot"></i>${esc(cname(c))}</a><b>…</b><i class="rb"><i></i></i></div>`;
+    const stat = (id, k, s) => `<div class="stat"><span class="k">${esc(k)}</span><b id="${id}">–</b><span class="s" id="${id}S">${s ? esc(s) : "&nbsp;"}</span></div>`;
+
+    // the test: the verdict with what matters in four numbers and a few lines, the site check, then every CDN (the
+    // page's own first; the ones timed only as tiles)
     const toolMain = ({ h1, intro, first }) => {
       const order = first ? [BY[first], ...CDNS.filter(c => c.id !== first)] : CDNS;
-      const rows = order.map(c => {
-        const n = c.list && POPS[c.list] ? (c.id === "cfchina" ? POPS.cloudflare.filter(p => p[2] === "CN").length : POPS[c.list].length) : 0;
-        const sub = n ? T("n_pops", { n }) : c.read ? T("n_read") : T("n_hidden");
-        return `      <div class="cr wait${c.id === first ? " me" : ""}" data-c="${c.id}" style="--c:${c.c}"><span class="cn"><b><i class="dot"></i><a href="${pathOf(slug, c.id + "/")}">${esc(cname(c))}</a></b><span>${esc(sub)}</span></span>` +
-          `<span class="cp"><b>…</b><span>&nbsp;</span></span><span class="cd"><b>…</b><span>&nbsp;</span></span><span class="cm"><b>…</b><span>&nbsp;</span></span></div>`;
-      }).join("\n");
+      const rows = order.filter(c => c.read).map(c => "      " + rowHTML(c, c.id === first)).join("\n");
+      const tiles = order.filter(c => !c.read).map(c => "        " + tileHTML(c, c.id === first)).join("\n");
       return `    <section class="hero card">
       <h1>${esc(h1)}</h1>${intro ? `\n      <p class="intro">${esc(intro)}</p>` : ""}
-      <div class="sum">
-        <div class="map" style="--map:url(/assets/${F.map})"><svg id="mapo" viewBox="0 0 360 142" aria-hidden="true"></svg></div>
-        <div class="sum-r">
-          <p class="verdict" id="verdict">${esc(T("v_wait"))}</p>
-          <p class="probs" id="probs">&nbsp;</p>
-          <div class="you"><span class="you-k">${esc(T("you_k"))}</span><span class="you-v" id="you"><i class="skl"></i></span><button class="mini" id="precise" type="button">${esc(T("precise"))}</button></div>
-          <p class="links">${linkOut("egressLink", "egress_link")}${linkOut("speedLink", "speed_link")}${linkOut("homeLink", "home_link")}</p>
-        </div>
+      <div class="verd"><p class="verdict" id="verdict">${esc(T("v_wait"))}</p><p class="vsub" id="vsub">&nbsp;</p></div>
+      <div class="stats">
+        ${stat("stNear", T("st_near"), T("st_near_s"))}
+        ${stat("stMed", T("st_med"))}
+        ${stat("stFar", T("st_far"))}
+        <div class="stat you"><span class="k">${esc(T("you_k"))}<button class="lnk" id="precise" type="button">${esc(T("precise"))}</button></span><b id="you"><i class="skl"></i></b><span class="s" id="youNet">&nbsp;</span></div>
       </div>
+      <ul class="finds" id="finds"><li class="wait"><i class="skl"></i></li><li class="wait"><i class="skl"></i></li><li class="wait"><i class="skl"></i></li></ul>
       <div class="bar">
         <div class="prog" id="prog"><i></i></div>
         <span class="prog-t" id="progTxt">&nbsp;</span>
@@ -124,20 +127,20 @@ export async function build() {
       </div>
     </section>
 
-    <section class="cdns card" aria-labelledby="cdnsT">
-      <div class="cdns-h"><h2 id="cdnsT">${esc(T("h_cdns"))}</h2><span class="sub">${esc(T("cdns_sub"))}</span></div>
-      <div class="ct">
-      <div class="cr ch"><span>${esc(T("c_cdn"))}</span><span>${esc(T("c_pop"))}</span><span>${esc(T("c_dist"))}</span><span>${esc(T("c_ms"))}</span></div>
-${rows}
-      </div>
+    <section class="site card">
+      <form class="site-f" id="siteForm"><label class="site-k" for="siteIn">${esc(T("h_site"))}</label><input id="siteIn" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${esc(T("site_ph"))}"><button class="btn pri" type="submit">${esc(T("site_go"))}</button></form>
+      <p class="site-res" id="siteRes" hidden></p>
     </section>
 
-    <section class="site card" aria-labelledby="siteT">
-      <div class="cdns-h"><h2 id="siteT">${esc(T("h_site"))}</h2><span class="sub">${esc(T("site_sub"))}</span></div>
-      <form class="site-f" id="siteForm"><input id="siteIn" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${esc(T("site_ph"))}" aria-label="${esc(T("h_site"))}"><button class="btn pri" type="submit">${esc(T("site_go"))}</button></form>
-      <p class="site-res" id="siteRes"><b>&nbsp;</b><span>&nbsp;</span></p>
-      <div class="ask"><button class="btn sm" id="askBtn" type="button"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="8.5" height="8.5" rx="1.5"/><path d="M3 10.5V3.8C3 3.1 3.6 2.5 4.3 2.5H11"/></svg><span>${esc(T("ask"))}</span></button><span class="m">${esc(T("ask_sub"))}</span></div>
-      <p class="links">${linkOut("costLink", "cost_link")}</p>
+    <section class="cdns card" aria-labelledby="cdnsT">
+      <div class="cdns-h"><h2 id="cdnsT">${esc(T("h_cdns"))}</h2><span class="sub">${esc(T("cdns_sub"))}</span></div>
+      <div class="cr ch"><span>${esc(T("c_cdn"))}</span><span>${esc(T("c_pop"))}</span><span>${esc(T("c_dist"))}</span><span>${esc(T("c_ms"))}</span></div>
+${rows}
+      <h3 class="tt-h">${esc(T("h_timed"))}</h3>
+      <div class="tts">
+${tiles}
+      </div>
+      <p class="links">${linkOut("egressLink", "egress_link")}${linkOut("speedLink", "speed_link")}${linkOut("homeLink", "home_link")}${linkOut("costLink", "cost_link")}</p>
     </section>`;
     };
 
@@ -175,9 +178,9 @@ ${rows}
         <div class="map" style="--map:url(/assets/${F.map})"><svg viewBox="0 0 360 142" aria-hidden="true"><circle cx="${X.toFixed(1)}" cy="${Y.toFixed(1)}" r="5" class="here-ring"/><circle cx="${X.toFixed(1)}" cy="${Y.toFixed(1)}" r="2.6" fill="${c.c}"/></svg><svg id="mapo" viewBox="0 0 360 142" aria-hidden="true"></svg></div>
         <dl class="facts">${facts.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>
       </div>
-      <div class="cr wait poprow" data-c="${tested}" hidden><span class="cn"><b></b><span></span></span><span class="cp"><b></b><span></span></span><span class="cd"><b></b><span></span></span><span class="cm"><b></b><span></span></span></div>
+      <div hidden>${rowHTML(BY[tested])}</div>
       <div class="pop-test"><p class="pop-res" id="popRes">${esc(T("v_wait"))}</p><p class="pop-dist m" id="popDist">&nbsp;</p>
-        <div class="you"><span class="you-k">${esc(T("you_k"))}</span><span class="you-v" id="you"><i class="skl"></i></span><button class="mini" id="precise" type="button">${esc(T("precise"))}</button></div></div>
+        <p class="you"><span class="you-k">${esc(T("you_k"))}</span><span id="you"><i class="skl"></i></span> <span class="m" id="youNet"></span><button class="lnk" id="precise" type="button">${esc(T("precise"))}</button></p></div>
     </section>
 
     <section class="card near">

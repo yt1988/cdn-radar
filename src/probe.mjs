@@ -56,7 +56,10 @@ export async function probe(cdn, signal) {
     if (signal && signal.aborted) throw e;
     err = e && e.name === "AbortError" ? "timeout" : "fail";
   }
-  // the second file, for the location only, when the first didn't give one
+  // the first file unreachable: the second one stands in, timed too (a host can be blocked or misrouted on one
+  // network while the CDN works)
+  if (!warm && cdn.alt) return probe({ ...cdn, url: cdn.alt.url, read: cdn.alt.read, alt: null }, signal);
+  // the second file, for the location only, when the first answered without one
   if (!code && cdn.alt) {
     try { code = readPop(cdn.alt.read, await once(cdn.alt.url, !cdn.alt.read.startsWith("st:"), WARM_TIMEOUT, signal)); } catch (e) { if (signal && signal.aborted) throw e; }
   }

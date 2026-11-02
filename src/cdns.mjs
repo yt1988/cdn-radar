@@ -23,12 +23,13 @@
 //
 // read: how to read the location ("trace": the body; "h:<header>": a header of a CORS answer; "st:<name>": a
 //       Server-Timing entry's description); null: timed only, fetched no-cors
-// alt:  a second file for the location when the first answers without one (or not at all)
+// alt:  a second file: for the location when the first answers without one, and in its place when it doesn't answer
 // list: the CDN publishes every location, and the page has them (data/pops.json): its own pages, one per location
 // name: a brand, the same in every language, or one per language for the names that have one
 
 export const CDNS = [
-  { id: "cloudflare", name: "Cloudflare", url: "https://www.cloudflare.com/cdn-cgi/trace", read: "trace", list: "cloudflare", c: "#f38020" },
+  { id: "cloudflare", name: "Cloudflare", url: "https://www.cloudflare.com/cdn-cgi/trace", read: "trace",
+    alt: { url: "https://speed.cloudflare.com/cdn-cgi/trace", read: "trace" }, list: "cloudflare", c: "#f38020" },
   { id: "cfchina", name: { en: "Cloudflare China Network", "zh-CN": "Cloudflare 中国网络", "zh-TW": "Cloudflare 中國網路", ja: "Cloudflare 中国ネットワーク",
       ko: "Cloudflare 중국 네트워크", es: "Cloudflare China Network", fr: "Cloudflare China Network", de: "Cloudflare China Network",
       pt: "Cloudflare China Network", ru: "Cloudflare China Network" }, short: "CF China",
@@ -82,7 +83,11 @@ export function placeOf(id, code, pops, places) {
   if (own) return own;
   if (id === "akamai" || id === "cdn77") {
     const [cc, key] = code.split("-"), c = places && places.city[cc + ":" + key];
-    return c ? [c[2], cc, c[0], c[1]] : null;
+    if (c) return [c[2], cc, c[0], c[1]];
+    // a city the airport list doesn't name (Akamai's JP_08_IBARAKI): its name as written, at the country's main
+    // airport (the list puts the big ones first), so the distance is about right
+    const main = places && Object.values(places.iata).find(p => p[2] === cc);
+    return main && key ? [key.charAt(0) + key.slice(1).toLowerCase(), cc, main[0], main[1]] : null;
   }
   const p = places && places.iata[code];
   return p ? [p[3], p[2], p[0], p[1]] : null;
