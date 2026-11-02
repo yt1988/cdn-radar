@@ -28,8 +28,9 @@ let bad = 0;
 const say = (okay, what, why = "") => { if (!okay) bad++; console.log(`${okay ? "ok  " : "FAIL"} ${what.padEnd(12)} ${why}`); };
 
 for (const c of CDNS) {
-  for (const [f, read] of [[c.url, c.read], ...(c.alt ? [[c.alt.url, c.alt.read]] : [])]) {
+  for (const [f, read] of [[c.url, c.read], ...[].concat(c.alt || []).map(a => [a.url, a.read])]) {
     const what = c.id + (f === c.url ? "" : " (alt)");
+    if (f.startsWith("/")) { console.log(`skip ${what.padEnd(12)} ${f} (this site's own)`); continue; }
     try {
       const first = await get(f);
       if (first.status >= 300 && first.status < 400) { say(false, what, `redirects to ${first.headers.location}`); continue; }

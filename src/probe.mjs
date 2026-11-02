@@ -7,7 +7,7 @@
 
 import { PARSE, parserOf } from "./cdns.mjs";
 
-export const TIMEOUT = 5000, WARM_TIMEOUT = 8000, TIMED = 3, GAP = 80;
+export const TIMEOUT = 5000, WARM_TIMEOUT = 6000, TIMED = 3, GAP = 80;
 
 try { performance.setResourceTimingBufferSize(2000); } catch (e) {}
 
@@ -58,10 +58,11 @@ export async function probe(cdn, signal) {
   }
   // the first file unreachable: the second one stands in, timed too (a host can be blocked or misrouted on one
   // network while the CDN works)
-  if (!warm && cdn.alt) return probe({ ...cdn, url: cdn.alt.url, read: cdn.alt.read, alt: null }, signal);
+  const alts = [].concat(cdn.alt || []);
+  if (!warm && alts.length) return probe({ ...cdn, url: alts[0].url, read: alts[0].read, alt: alts.slice(1) }, signal);
   // the second file, for the location only, when the first answered without one
-  if (!code && cdn.alt) {
-    try { code = readPop(cdn.alt.read, await once(cdn.alt.url, !cdn.alt.read.startsWith("st:"), WARM_TIMEOUT, signal)); } catch (e) { if (signal && signal.aborted) throw e; }
+  if (!code && alts.length) {
+    try { code = readPop(alts[0].read, await once(alts[0].url, !alts[0].read.startsWith("st:"), WARM_TIMEOUT, signal)); } catch (e) { if (signal && signal.aborted) throw e; }
   }
   if (!warm) return { ms: null, code, err };
   // Cloudflare's trace also says which country the request came from: a proxy that carries this CDN shows here

@@ -53,7 +53,8 @@ async function loadI18n() {
 // Strings only the build uses (the page has them already); the rest go to the browser
 const BUILD_ONLY = new Set(["name", "seo_title", "seo_desc", "seo_kw", "og_sub", "h1", "docs", "lang_label", "faq_h", "h_cdns", "cdns_sub", "c_cdn", "c_pop",
   "c_dist", "c_ms", "h_timed", "st_near", "st_near_s", "st_med", "st_far", "you_k", "precise", "h_site", "site_ph", "site_go", "egress_link", "cost_link",
-  "speed_link", "home_link", "share_title", "share_desc", "cdn_title", "cdn_desc", "cdn_desc_list", "cdn_kw", "cdn_h1", "cdn_og", "how_h", "how_trace", "how_header",
+  "speed_link", "home_link", "share_title", "share_desc", "cdn_title", "cdn_desc", "cdn_desc_list", "cdn_kw", "cdn_h1", "cdn_og", "cdn_title_timed", "cdn_desc_timed", "cdn_kw_timed",
+  "cdn_h1_timed", "cdn_og_timed", "how_h", "how_trace", "how_header",
   "how_timing", "how_none", "list_h", "list_cn", "more_cdns", "pop_title", "pop_desc", "pop_kw", "pop_h1", "pop_intro", "f_code", "f_city", "f_country",
   "f_coord", "f_net", "pop_cn", "pop_global", "near_h", "cc_h"]);
 
@@ -104,21 +105,21 @@ export async function build() {
     const stat = (id, k, s) => `<div class="stat"><span class="k">${esc(k)}</span><b id="${id}">–</b><span class="s" id="${id}S">${s ? esc(s) : "&nbsp;"}</span></div>`;
 
     // the test: the verdict with what matters in four numbers and a few lines, the site check, then every CDN (the
-    // page's own first; the ones timed only as tiles)
+    // ones timed only as tiles). On a CDN's page the verdict and the numbers are that CDN's: where it serves you from,
+    // how far, how long; its row comes first, and the others follow for comparison.
     const toolMain = ({ h1, intro, first }) => {
       const order = first ? [BY[first], ...CDNS.filter(c => c.id !== first)] : CDNS;
       const rows = order.filter(c => c.read).map(c => "      " + rowHTML(c, c.id === first)).join("\n");
       const tiles = order.filter(c => !c.read).map(c => "        " + tileHTML(c, c.id === first)).join("\n");
-      return `    <section class="hero card">
+      return `    <section class="hero card${first ? " one" : ""}">
       <h1>${esc(h1)}</h1>${intro ? `\n      <p class="intro">${esc(intro)}</p>` : ""}
       <div class="verd"><p class="verdict" id="verdict">${esc(T("v_wait"))}</p><p class="vsub" id="vsub">&nbsp;</p></div>
       <div class="stats">
-        ${stat("stNear", T("st_near"), T("st_near_s"))}
-        ${stat("stMed", T("st_med"))}
-        ${stat("stFar", T("st_far"))}
+        ${first ? stat("stPop", T("c_pop")) + stat("stDist", T("c_dist")) + stat("stMs", T("c_ms"))
+          : stat("stNear", T("st_near"), T("st_near_s")) + stat("stMed", T("st_med")) + stat("stFar", T("st_far"))}
         <div class="stat you"><span class="k">${esc(T("you_k"))}<button class="lnk" id="precise" type="button">${esc(T("precise"))}</button></span><b id="you"><i class="skl"></i></b><span class="s" id="youNet">&nbsp;</span></div>
       </div>
-      <ul class="finds" id="finds"><li class="wait"><i class="skl"></i></li><li class="wait"><i class="skl"></i></li><li class="wait"><i class="skl"></i></li></ul>
+      <ul class="finds" id="finds">${first ? `<li class="wait"><i class="skl"></i></li>` : `<li class="wait"><i class="skl"></i></li><li class="wait"><i class="skl"></i></li><li class="wait"><i class="skl"></i></li>`}</ul>
       <div class="bar">
         <div class="prog" id="prog"><i></i></div>
         <span class="prog-t" id="progTxt">&nbsp;</span>
@@ -198,8 +199,10 @@ ${tiles}
     const pages = [{ kind: "home", dir: "", title: T("seo_title"), desc: T("seo_desc"), kw: T("seo_kw"), og: T("og_sub"), main: toolMain({ h1: T("h1") }), faq: true }];
     for (const c of CDNS) {
       const n = c.list ? (c.id === "cfchina" ? POPS.cloudflare.filter(p => p[2] === "CN").length : POPS[c.list].length) : 0, v = { cdn: cname(c), n };
-      pages.push({ kind: "cdn", cdn: c.id, dir: c.id + "/", title: T("cdn_title", v), desc: T(n ? "cdn_desc_list" : "cdn_desc", v), kw: T("cdn_kw", v), og: T("cdn_og", v),
-        main: toolMain({ h1: T("cdn_h1", v), first: c.id }), article: cdnArticle(c) });
+      // a CDN that doesn't say where it answers from gets a latency page: its title can't promise a location
+      const k = c.read ? "" : "_timed";
+      pages.push({ kind: "cdn", cdn: c.id, dir: c.id + "/", title: T("cdn_title" + k, v), desc: T(n ? "cdn_desc_list" : "cdn_desc" + k, v), kw: T("cdn_kw" + k, v),
+        og: T("cdn_og" + k, v), main: toolMain({ h1: T("cdn_h1" + k, v), first: c.id }), article: cdnArticle(c) });
     }
     for (const list of LISTS) for (const p of POPS[list]) {
       const v = { cdn: cname(BY[list]), city: p[1], code: p[0], country: country(p[2]), n: POPS[list].length };
@@ -282,7 +285,7 @@ ${tiles}
 - Page: ${SITE}/ (also ${langs.slice(1).map(([, s]) => "/" + s + "/").join(", ")})
 - One page per CDN: ${CDNS.map(c => SITE + "/" + c.id + "/").join(", ")}
 - One page per location of Cloudflare (${POPS.cloudflare.length}, ${POPS.cloudflare.filter(p => p[2] === "CN").length} of them on the China Network), Bunny (${POPS.bunny.length}) and Wikimedia (${POPS.wikimedia.length}): ${SITE}/cloudflare/hkg/, ${SITE}/bunny/jp/, ${SITE}/wikimedia/eqsin/
-- Test files: ${CDNS.map(c => `${c.id}: ${new URL(c.url).host}`).join("; ")}
+- Test files: ${CDNS.map(c => `${c.id}: ${new URL(c.url).host}`).join("; ")} (Cloudflare falls back to speed.cloudflare.com, then the page's own /cdn-cgi/trace)
 - Source code: https://github.com/yt1988/cdn-radar
 `;
   // The only inline script is the pre-paint snippet, identical on every page: one hash covers the site. connect-src

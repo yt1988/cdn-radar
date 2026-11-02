@@ -38,6 +38,8 @@ a.q0:hover { color: var(--ink); }
 .lnk:disabled { color: var(--muted); cursor: default; text-decoration: none; }
 /* what stands out: three lines kept from the start, a fourth when there is one */
 .finds { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; min-height: calc(3 * 1.55em + 16px); font-size: 14px; line-height: 1.55; }
+/* a CDN's page: about one CDN, so one line kept */
+.hero.one .finds { min-height: 1.55em; }
 .finds li { display: flex; gap: 10px; align-items: flex-start; color: var(--fg); }
 .finds li.wait { height: 1.55em; align-items: center; }
 .finds li.wait .skl { width: 60%; }

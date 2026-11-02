@@ -3,7 +3,7 @@
 // fastest one the distance allows. The map and the verdict follow. A location page (/<cdn>/<code>/) tests its one CDN.
 // Strings: window.L1MS.
 import { CDNS, BY, nameOf, placeOf, popMaps, SITE_HEADERS, SITE_TIMING, PARSE, cdnOfName, isCloudflareIP } from "./cdns.mjs";
-import { km, floorMs, tierOf, detoured, nearest, missedNearest, summary, FAST, encode as encodeShare, decode as decodeShare, sharePath, hostOf } from "./lib.mjs";
+import { km, floorMs, tierOf, detoured, nearest, missedNearest, summary, FAST, isFar, encode as encodeShare, decode as decodeShare, sharePath, hostOf } from "./lib.mjs";
 import { probe, dns, once, readPop } from "./probe.mjs";
 
 (function () {
@@ -201,6 +201,7 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     drawMap(rows, me());
     const v = $("#verdict");
     if (D.kind === "pop" || !v) return;
+    if (D.kind === "cdn") return heroCdn(rowOf(D.cdn), final);
     if (!final) { v.textContent = t("v_wait"); v.className = "verdict"; return; }
     const s = summary(LIST.map(c => rowOf(c.id) || { id: c.id, ms: null }));
     // a shared result without its place: no distances, by the sharer's choice
@@ -220,6 +221,40 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     $("#stFarS").textContent = f ? `${cdnName(f.id)} · ${f.place[0]}` : " ";
     const items = s.findings.length ? s.findings : [{ kind: "ok", key: "f_none" }];
     $("#finds").innerHTML = items.map(x => `<li class="${x.kind}"><svg viewBox="0 0 16 16" aria-hidden="true">${ICON[x.kind]}</svg><span>${esc(x.key === "f_none" ? t("f_none") : finding(x))}</span></li>`).join("");
+  }
+
+  // A CDN's page: its own verdict as soon as it has answered. Where it serves you from, how far, how long, and what
+  // the round trip says when it doesn't tell its location: light in fiber goes about 100 km per ms of round trip, so
+  // the edge that answered is at most that far.
+  function heroCdn(x, final) {
+    const v = $("#verdict"), id = D.cdn, cdn = cdnName(id), set = (k, b, s, cls) => { $("#" + k).textContent = b; $("#" + k).className = cls || ""; $("#" + k + "S").textContent = s || " "; };
+    if (!x) { v.textContent = t("v_wait"); v.className = "verdict"; return; }
+    const out = [];
+    if (x.ms == null) {
+      v.textContent = t("pv_fail", { cdn }); v.className = "verdict bad";
+      $("#vsub").textContent = t("pv_fail_sub");
+      set("stPop", "–"); set("stDist", "–"); set("stMs", "–");
+    } else if (x.code) {
+      const where = x.place ? placeTxt(x.place) : x.code, c = popCode(id, x.code);
+      v.textContent = t("pv_pop", { cdn, place: where });
+      v.className = "verdict " + (x.d == null ? "" : isFar(x) ? "warn" : "t1");
+      $("#vsub").textContent = x.d != null ? t("pv_sub", { km: kmTxt(x.d), ms: msTxt(x.ms), floor: msTxt(floorMs(x.d)) }) : t("pv_sub_noloc", { ms: msTxt(x.ms) });
+      set("stPop", c || (x.place ? x.place[0] : x.code), x.place ? (c ? placeTxt(x.place) : country(x.place[1])) : "");
+      if (x.d != null) { const tier = tierOf(x.d); set("stDist", kmTxt(x.d), t("d_" + tier[2]), tier[1]); } else set("stDist", "–");
+      set("stMs", msTxt(x.ms), x.d != null ? t("r_floor", { ms: fmtMs(floorMs(x.d)) }) : "", msTier(x.ms));
+      if (x.d != null && missedNearest(x.d, x.near)) out.push(["warn", t("f_notnearest_tip", { cdn, code: popCode(id, x.near[0]), place: placeTxt(x.near[1]), km: kmTxt(x.near[2]) })]);
+      if (x.d != null && detoured(x.ms, x.d)) out.push(["warn", t("f_slow_tip", { floor: msTxt(floorMs(x.d)), km: kmTxt(x.d) })]);
+    } else {
+      // timed only (or it didn't say): the round trip, and how far the edge can be at most
+      v.textContent = t(BY[id].read ? "pv_nopop" : "pv_timed", { cdn, ms: msTxt(x.ms) }); v.className = "verdict " + (x.ms < FAST ? "t1" : x.ms < 80 ? "" : "warn");
+      $("#vsub").textContent = t("pv_bound", { km: kmTxt(x.ms * 100) });
+      set("stPop", t("r_hidden")); set("stDist", "≤ " + kmTxt(x.ms * 100)); set("stMs", msTxt(x.ms), "", msTier(x.ms));
+    }
+    if (x.loc && me() && me().cc && x.loc !== me().cc && !SHOWN) out.push(["warn", t("r_via_tip", { where: country(x.loc) })]);
+    // next to the others, once they are all in
+    const all = CDNS.filter(c => R[c.id] && R[c.id].ms != null);
+    if (final && x.ms != null && all.length > 1) out.push(["ok", t("pv_rank", { rank: all.filter(c => R[c.id].ms < x.ms).length + 1, n: all.length })]);
+    if (final || out.length) $("#finds").innerHTML = (out.length ? out : [["ok", t("f_none")]]).map(([k, s]) => `<li class="${k}"><svg viewBox="0 0 16 16" aria-hidden="true">${ICON[k]}</svg><span>${esc(s)}</span></li>`).join("");
   }
 
   // the visitor: city and country, and their network
@@ -258,7 +293,8 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     await Promise.all([popsP, placesP]);
     geoP.then(() => { if (!ctl.signal.aborted) redraw(); });
     // a few at a time: twenty connections at once would queue behind each other on a slow link
-    const queue = [...LIST];
+    // a CDN's page tests its own CDN first, so its verdict comes first
+    const queue = D.kind === "cdn" ? [BY[D.cdn], ...LIST.filter(c => c.id !== D.cdn)] : [...LIST];
     const worker = async () => {
       for (let c; (c = queue.shift());) {
         let x;

@@ -23,13 +23,15 @@
 //
 // read: how to read the location ("trace": the body; "h:<header>": a header of a CORS answer; "st:<name>": a
 //       Server-Timing entry's description); null: timed only, fetched no-cors
-// alt:  a second file: for the location when the first answers without one, and in its place when it doesn't answer
+// alt:  a second file, or a list of them: for the location when the first answers without one, and in its place
+//       (each in turn) when it doesn't answer
 // list: the CDN publishes every location, and the page has them (data/pops.json): its own pages, one per location
 // name: a brand, the same in every language, or one per language for the names that have one
 
 export const CDNS = [
   { id: "cloudflare", name: "Cloudflare", url: "https://www.cloudflare.com/cdn-cgi/trace", read: "trace",
-    alt: { url: "https://speed.cloudflare.com/cdn-cgi/trace", read: "trace" }, list: "cloudflare", c: "#f38020" },
+    // this site's own trace last: same origin, so neither an extension nor a proxy rule singles it out
+    alt: [{ url: "https://speed.cloudflare.com/cdn-cgi/trace", read: "trace" }, { url: "/cdn-cgi/trace", read: "trace" }], list: "cloudflare", c: "#f38020" },
   { id: "cfchina", name: { en: "Cloudflare China Network", "zh-CN": "Cloudflare 中国网络", "zh-TW": "Cloudflare 中國網路", ja: "Cloudflare 中国ネットワーク",
       ko: "Cloudflare 중국 네트워크", es: "Cloudflare China Network", fr: "Cloudflare China Network", de: "Cloudflare China Network",
       pt: "Cloudflare China Network", ru: "Cloudflare China Network" }, short: "CF China",
