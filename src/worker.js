@@ -4,7 +4,7 @@
 //                         distances start there. Never stored or logged; not cached.
 //   /r/<code>, /<lang>/r/<code>   a shared result: that language's page with the locations in its title (what chat
 //                         apps show as the link's preview), not indexed; the page itself reads the code and shows the
-//                         result (src/lib.mjs)
+//                         result (src/lib.mjs); a code it can't read is a 404
 //   anything else         a bare 404; 1ms-shell puts the shared 1ms.dog 404 page in front of it
 
 import { BY, nameOf } from "./cdns.mjs";
@@ -32,12 +32,14 @@ export default {
     if (url.pathname === "/dns") return dns(url);
     const sp = sharePath(url.pathname);
     if (sp && sp.slug in STR && env.ASSETS) return shared(req, env, url, sp);
-    return new Response(req.method === "HEAD" ? null : "Not found\n", {
-      status: 404,
-      headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "public, max-age=0, must-revalidate" },
-    });
+    return notFound(req);
   },
 };
+
+const notFound = req => new Response(req.method === "HEAD" ? null : "Not found\n", {
+  status: 404,
+  headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "public, max-age=0, must-revalidate" },
+});
 
 function geo(req) {
   const cf = req.cf || {}, n = v => v == null || v === "" ? null : +v;
@@ -65,11 +67,12 @@ async function dns(url) {
 }
 
 // A shared result: the language's page as it is, with the title, description and their Open Graph and Twitter copies
-// naming the locations that answered. A code this page can't read goes to the language's page instead.
+// naming the locations that answered. A code this page can't read (mangled, cut short, a version it doesn't know) is a
+// 404, like any other page that isn't there.
 async function shared(req, env, url, { slug, code }) {
   const home = "/" + (slug ? slug + "/" : "");
   const r = decode(code);
-  if (!r) return Response.redirect(new URL(home, url).toString(), 302);
+  if (!r) return notFound(req);
   const [S, lang] = STR[slug];
   // the three fastest that said where they were: "Cloudflare HKG 38 ms · Akamai Tokyo 12 ms …"
   const top = r.rows.filter(x => x.ms != null && x.code).sort((a, b) => a.ms - b.ms).slice(0, 3)
