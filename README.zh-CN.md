@@ -22,12 +22,12 @@
   | Wikimedia | `upload.wikimedia.org` | `X-Cache: cp5029 …`（5 是新加坡） |
 
   Google、阿里云、腾讯云 EdgeOne、网宿、Gcore 和 CDN77 没有找到任何允许网页读取节点的公开文件，所以只测延迟。
-- **逐行标出直连（D）还是代理（P）。** 用了按规则分流的代理时，有的 CDN 从你自己的线路连，有的经过代理，节点和往返时间都会因此不同。页面先找出你的出口：国内网站 IPIP 看到的地址、本站看到的地址（1ms.dog shell 的 `/_ms/me`，或 Worker 的 `/geo`）、Cloudflare trace 看到的地址；由 Cloudflare 或 ip.sb 定位，代理按它连到的 Cloudflare 节点定位。然后给每家 CDN 标出走的出口：trace 写明了地址；节点离某个出口近得多；往返短到不可能经过代理；或者按常见规则的国内直连列表（geosite:cn）推断。判断不了的标「?」，不计入结论。「只测直连或只测代理」把所有测试域名设成同一条路：优先给远程规则集（`/rules/clash.yaml`、`surge.list`、`loon.list`、`quanx.list`、`singbox.json`，随页面一起构建），支持 Clash / Mihomo、Surge、Shadowrocket、Quantumult X、Loon、sing-box，也可以直接粘贴规则。
-- **距离和理论最低值。** 距离从每行走的出口算：直连从你的位置（同意后用浏览器定位），代理从代理的位置。光在光纤里每毫秒约走 200 km，所以 d km 的往返不可能低于 d ÷ 100 ms；远超两倍就是绕远了。对公开了全部节点的 CDN（Cloudflare、Bunny、Wikimedia），还会指出你没有被分到最近的节点。
+- **距离和理论最低值。** 你的位置来自 Cloudflare 对请求 IP 的定位（`/geo`），或者在你同意后用浏览器定位。光在光纤里每毫秒约走 200 km，所以 d km 的往返不可能低于 d ÷ 100 ms；远超两倍就是绕远了。对公开了全部节点的 CDN（Cloudflare、Bunny、Wikimedia），还会指出你没有被分到最近的节点。
+- **只测直连或只测代理。** 网页没法决定走直连还是代理，这由代理客户端决定。结果反映你当前的网络和分流规则；弹窗把所有测试域名做成远程规则集（`/rules/clash.yaml`、`surge.list`、`loon.list`、`quanx.list`、`singbox.json`，随页面一起构建），支持 Clash / Mihomo、Surge、Shadowrocket、Quantumult X、Loon、sing-box，也可以直接粘贴规则，设成直连或走代理。
 - **查网站**：从 DNS 认出 CDN（CNAME 或 Cloudflare 的地址；Worker 的 `/dns` 用 Cloudflare 的 DNS 查询，不受污染影响），网站允许时读出节点，再测往返时间。
 - **每家 CDN、每个节点都有页面**：`/cloudflare/`、`/cloudflare/hkg/`、`/bunny/jp/`……包括最近的其他节点，以及测一测你连的是不是它。10 种语言。
-- **分享结果**：用 1ms.dog 公共分享组件生成图片或链接（`/r/…`）。链接里有节点、往返时间和每行走的出口（只有字母）；城市（以及代理的位置，用于代理行的距离）、坐标（约 10 公里精度）和运营商只有勾选后才加入；永远不含 IP。
-- **不收集数据**：请求从浏览器直接发往各家 CDN、IPIP 和 ip.sb（为了定位，出口的地址会发给它）。Worker 只回答 `/geo` 和查网站用的 `/dns`（都不保存、不记录），以及给分享链接生成预览标题。
+- **分享结果**：用 1ms.dog 公共分享组件生成图片或链接（`/r/…`）。链接里有节点和往返时间；城市、坐标（约 10 公里精度）和运营商只有勾选后才加入；永远不含 IP。
+- **不收集数据**：请求从浏览器直接发往各家 CDN。Worker 只回答 `/geo` 和查网站用的 `/dns`（都不保存、不记录），以及给分享链接生成预览标题。
 
 ## 往返时间怎么测
 

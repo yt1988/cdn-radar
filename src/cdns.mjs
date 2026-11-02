@@ -27,9 +27,6 @@
 //       (each in turn) when it doesn't answer
 // list: the CDN publishes every location, and the page has them (data/pops.json): its own pages, one per location
 // name: a brand, the same in every language, or one per language for the names that have one
-// cn:   the test file's domain is on the list of mainland-China domains that proxy rules send direct (v2fly's
-//       geolocation-cn, which "GEOSITE,CN" rules use: cloudflare-cn.com, alicdn.com through alibaba, tencentcloud.com
-//       through tencent; checked 2026-11). Under such rules it takes the same exit as the page's mainland probe.
 
 export const CDNS = [
   { id: "cloudflare", name: "Cloudflare", url: "https://www.cloudflare.com/cdn-cgi/trace", read: "trace",
@@ -38,7 +35,7 @@ export const CDNS = [
   { id: "cfchina", name: { en: "Cloudflare China Network", "zh-CN": "Cloudflare 中国网络", "zh-TW": "Cloudflare 中國網路", ja: "Cloudflare 中国ネットワーク",
       ko: "Cloudflare 중국 네트워크", es: "Cloudflare China Network", fr: "Cloudflare China Network", de: "Cloudflare China Network",
       pt: "Cloudflare China Network", ru: "Cloudflare China Network" }, short: "CF China",
-    url: "https://www.cloudflare-cn.com/cdn-cgi/trace", read: "trace", list: "cloudflare", cn: 1, c: "#e8590c" },
+    url: "https://www.cloudflare-cn.com/cdn-cgi/trace", read: "trace", list: "cloudflare", c: "#e8590c" },
   { id: "cloudfront", name: "Amazon CloudFront", short: "CloudFront", url: "https://static.figma.com/app/icon/1/favicon.ico", read: "st:cdn-pop",
     alt: { url: "https://cdn-avatars.huggingface.co/v1/production/uploads/1583856921041-5dd96eb166059660ed1ee413.png", read: "h:x-amz-cf-pop" }, c: "#8c4fff" },
   { id: "akamai", name: "Akamai", url: "https://res-1.cdn.office.net/files/fabric-cdn-prod_20230815.002/assets/brand-icons/product/svg/word_16x1.svg",
@@ -50,10 +47,10 @@ export const CDNS = [
   { id: "wikimedia", name: "Wikimedia", url: "https://upload.wikimedia.org/favicon.ico", read: "h:x-cache", list: "wikimedia", c: "#9a9a9a" },
   { id: "google", name: "Google", url: "https://www.gstatic.com/generate_204", read: null, c: "#4285f4" },
   { id: "alibaba", name: { en: "Alibaba Cloud", "zh-CN": "阿里云", "zh-TW": "阿里雲", ja: "Alibaba Cloud", ko: "알리바바 클라우드", es: "Alibaba Cloud",
-      fr: "Alibaba Cloud", de: "Alibaba Cloud", pt: "Alibaba Cloud", ru: "Alibaba Cloud" }, url: "https://g.alicdn.com/favicon.ico", read: null, cn: 1, c: "#ff6a00" },
+      fr: "Alibaba Cloud", de: "Alibaba Cloud", pt: "Alibaba Cloud", ru: "Alibaba Cloud" }, url: "https://g.alicdn.com/favicon.ico", read: null, c: "#ff6a00" },
   { id: "tencent", name: { en: "Tencent EdgeOne", "zh-CN": "腾讯云 EdgeOne", "zh-TW": "騰訊雲 EdgeOne", ja: "Tencent EdgeOne", ko: "Tencent EdgeOne",
       es: "Tencent EdgeOne", fr: "Tencent EdgeOne", de: "Tencent EdgeOne", pt: "Tencent EdgeOne", ru: "Tencent EdgeOne" }, short: "EdgeOne",
-    url: "https://www.tencentcloud.com/favicon.ico", read: null, cn: 1, c: "#0052d9" },
+    url: "https://www.tencentcloud.com/favicon.ico", read: null, c: "#0052d9" },
   { id: "wangsu", name: { en: "Wangsu (CDNetworks)", "zh-CN": "网宿", "zh-TW": "網宿", ja: "Wangsu (CDNetworks)", ko: "Wangsu (CDNetworks)",
       es: "Wangsu (CDNetworks)", fr: "Wangsu (CDNetworks)", de: "Wangsu (CDNetworks)", pt: "Wangsu (CDNetworks)", ru: "Wangsu (CDNetworks)" }, short: "Wangsu",
     url: "https://www.cdnetworks.com/favicon.ico", read: null, c: "#e60012" },
@@ -71,8 +68,6 @@ export const nameOf = (c, lang) => typeof c.name === "string" ? c.name : c.name[
 const WMF = { 1: "eqiad", 2: "codfw", 3: "esams", 4: "ulsfo", 5: "eqsin", 6: "drmrs", 7: "magru" };
 export const PARSE = {
   trace: s => (/\bcolo=([A-Z]{3})\b/.exec(s || "") || [])[1] || null,
-  // the address a trace saw the request come from: which exit took it
-  ip: s => (/(?:^|\n)ip=([0-9a-fA-F:.]+)/.exec(s || "") || [])[1] || null,
   "cdn-pop": s => (/^([A-Z]{3})\d/.exec(s || "") || [])[1] || null,
   "x-amz-cf-pop": s => (/^([A-Z]{3})\d/.exec(s || "") || [])[1] || null,
   // the first bracket is the edge that answered (c=g); the others are its parents

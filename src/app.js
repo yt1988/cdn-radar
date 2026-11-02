@@ -3,8 +3,7 @@
 // fastest one the distance allows. The map and the verdict follow. A location page (/<cdn>/<code>/) tests its one CDN.
 // Strings: window.L1MS.
 import { CDNS, BY, HOSTS, nameOf, placeOf, popMaps, SITE_HEADERS, SITE_TIMING, PARSE, cdnOfName, isCloudflareIP } from "./cdns.mjs";
-import { km, floorMs, tierOf, detoured, nearest, missedNearest, summary, median, FAST, isFar, groupExits, cdnExits, routes, exitOfIp, sameNet,
-  encode as encodeShare, decode as decodeShare, sharePath, hostOf } from "./lib.mjs";
+import { km, floorMs, tierOf, detoured, nearest, missedNearest, summary, FAST, isFar, encode as encodeShare, decode as decodeShare, sharePath, hostOf } from "./lib.mjs";
 import { probe, dns, once, readPop } from "./probe.mjs";
 
 (function () {
@@ -137,54 +136,10 @@ import { probe, dns, once, readPop } from "./probe.mjs";
   const getJ = (u, opt) => fetch(u, opt).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
   const popsP = getJ("/assets/" + D.files.pops).then(j => { DATA.pops = popMaps(j); }).catch(() => { DATA.pops = {}; });
   const placesP = getJ("/assets/" + D.files.places).then(j => { DATA.places = j; }).catch(() => { DATA.places = { iata: {}, city: {} }; });
-  // This site's view of the connection: the address and Cloudflare's guess of where it is, and the Cloudflare location
-  // it reached. The 1ms.dog shell's /_ms/me, else this site's Worker (/geo); null when self-hosted as plain files.
-  let U = null, PRECISE = null;
-  const num = v => v == null || v === "" ? null : +v;
-  const loadSelf = () => getJ("/_ms/me", { cache: "no-store" })
-    .then(j => ({ ip: j.ip, cc: j.country, city: j.city, lat: num(j.latitude), lon: num(j.longitude), asn: j.asn, org: j.org, colo: j.colo }))
-    .catch(() => getJ("/geo", { cache: "no-store" })).then(j => { if (j && (j.ip || j.lat != null)) U = j; }).catch(() => {});
-  let geoP = loadSelf();
-
-  /* ---------- exits: the visitor's own line (D) and any proxies (P), and which one each CDN's request took ---------- */
-  // Sources: this site's view (above), a mainland-China site (IPIP: proxy rules send it direct), and the address
-  // Cloudflare's trace saw for each CDN read by trace. Each address is placed by IP geolocation (ip.sb) unless
-  // Cloudflare placed it already. lib.mjs groups them into exits and works out each row's route.
-  const EX = { seen: [], geo: {}, cn: null, list: [], rt: {}, ready: false };
-  const sig6 = () => AbortSignal.timeout ? AbortSignal.timeout(6000) : undefined;
-  const ext = u => fetch(u, { cache: "no-store", credentials: "omit", referrerPolicy: "no-referrer", signal: sig6() }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
-  const asked = new Set();
-  function addExit(ip, src, g) {
-    if (!ip) return;
-    if (!EX.seen.some(x => x.ip === ip && x.src === src)) EX.seen.push({ ip, src });
-    if (g) EX.geo[ip] = { ...(EX.geo[ip] || {}), ...g };
-    // placed already, or an address on the same network is
-    if (Object.entries(EX.geo).some(([k, v]) => v.lat != null && sameNet(k, ip)) || asked.has(ip)) return;
-    asked.add(ip);
-    ext("https://api.ip.sb/geoip/" + encodeURIComponent(ip)).then(j => {
-      EX.geo[ip] = { ...(EX.geo[ip] || {}), cc: j.country_code || "", city: j.city || "", lat: num(j.latitude), lon: num(j.longitude), asn: j.asn || null,
-        org: j.asn_organization || j.organization || j.isp || "" };
-      redraw();
-    }).catch(() => {});
-  }
-  function findExits() {
-    EX.seen = []; EX.cn = null; EX.list = []; EX.rt = {}; EX.ready = false;
-    geoP.then(() => { if (U && U.ip) addExit(U.ip, "self", { cc: U.cc, city: U.city, lat: U.lat, lon: U.lon, asn: U.asn, org: U.org, colo: U.colo }); redraw(); });
-    return ext("https://myip.ipip.net/json").then(j => { const ip = j && j.data && j.data.ip; if (ip) { EX.cn = ip; addExit(ip, "cn"); redraw(); } }).catch(() => {});
-  }
-  // a Cloudflare location code → [lat, lon, city, cc]
-  const cfAt = code => { const p = code && DATA.pops && DATA.pops.cloudflare && DATA.pops.cloudflare[code]; return p ? [p[2], p[3], p[0], p[1]] : null; };
-  // the exits and every row's route, from what has come in so far
-  function regroup() {
-    const geo = Object.fromEntries(Object.entries(EX.geo).map(([ip, g]) => [ip, { ...g, edge: cfAt(g.colo), edgeCn: cfAt(g.coloCn) }]));
-    EX.list = groupExits(EX.seen, geo);
-    const cnE = exitOfIp(EX.list, EX.cn);
-    EX.rt = routes(LIST.filter(c => R[c.id]).map(c => ({ id: c.id, ip: R[c.id].ip, ms: R[c.id].ms, place: R[c.id].code && DATA.pops ? placeOf(c.id, R[c.id].code, DATA.pops, DATA.places) : null })),
-      cdnExits(EX.list), cnE && cnE.letter);
-  }
-  // the exits the CDNs' requests can have taken (lib.mjs cdnExits); exitBy finds any, this site's own too
-  const exits = () => SHOWN ? SHOWN.exits : cdnExits(EX.list);
-  const exitBy = x => (SHOWN ? SHOWN.exits : EX.list).find(e => e.letter === x) || null;
+  // where the visitor is: this site's Worker reads Cloudflare's guess from the request (/geo); null when self-hosted
+  // as plain files. A precise location, when the visitor asks for one, replaces the coordinates.
+  let U = null;
+  const geoP = getJ("/geo", { cache: "no-store" }).then(j => { if (j && j.lat != null) U = j; }).catch(() => {});
 
   /* ---------- the map: the visitor and each location answered, on an equirectangular world (lat 84 to -58) ---------- */
   const X = lon => lon + 180, Y = lat => 84 - Math.max(-58, Math.min(84, lat));
@@ -213,29 +168,19 @@ import { probe, dns, once, readPop } from "./probe.mjs";
   let R = {};            // results so far, by CDN id: { ms, code, err, loc? }
   let SHOWN = null;      // a shared result being shown: its visitor location (or null)
   let SITE = null;       // the site check's result
-  // Where the visitor is: their own line's exit (the first direct one), else this site's view; the browser's position
-  // when they ask for it. A shared result: the sharer's, when they showed it.
-  const home = () => { const e = EX.list.find(x => x.kind === "D" && x.lat != null); return e ? { cc: e.cc, city: e.city, lat: e.lat, lon: e.lon, asn: e.asn, org: e.org } : U; };
-  const me = () => SHOWN ? SHOWN.where : PRECISE ? { ...(home() || {}), ...PRECISE } : home();
+  const me = () => SHOWN ? SHOWN.where : U;
   const listFmt = (() => { try { return new Intl.ListFormat(D.lang, { type: "conjunction" }); } catch (e) { return { format: a => a.join(", ") }; } })();
   const names = ids => listFmt.format(ids.map(cdnName));
 
-  // A row's result with its place, route, distance and flags. Its distance starts at its exit: a proxy's place for a
-  // row that went through one, the visitor's otherwise. unsure: there are several exits and this row's can't be told.
+  // a row's result with its place, distance and flags
   function rowOf(id) {
     const x = R[id];
     if (!x) return null;
-    const place = x.code && DATA.pops ? placeOf(id, x.code, DATA.pops, DATA.places) : null;
-    // answered only through this site's own trace: this site's route was measured, not the CDN's
-    const route = x.own && !SHOWN ? { x: null, how: "own" } : (SHOWN ? x.route : EX.rt[id]) || { x: null }, ex = route.x && exitBy(route.x);
-    const multi = SHOWN ? SHOWN.multi : exits().length > 1;
-    const m = ex && ex.kind === "P" && ex.lat != null ? ex : route.x && route.x[0] === "P" ? null : me();
+    const place = x.code && DATA.pops ? placeOf(id, x.code, DATA.pops, DATA.places) : null, m = me();
     const d = place && m && m.lat != null ? km(m.lat, m.lon, place[2], place[3]) : null;
-    // through a proxy the round trip also covers the way to it: the least it can take counts that too
-    const you = me(), dp = d != null && m === ex && you && you.lat != null ? km(you.lat, you.lon, ex.lat, ex.lon) + d : null;
     const list = BY[id] && BY[id].list && DATA.pops && DATA.pops[BY[id].list];
     const near = d != null && list && m ? nearest(id === "cfchina" ? Object.fromEntries(Object.entries(list).filter(([, p]) => p[1] === "CN")) : list, m.lat, m.lon) : null;
-    return { id, code: x.code, ms: x.ms, err: x.err, place, d, dp, near, route, multi, unsure: (multi || !!x.own) && !route.x };
+    return { id, code: x.code, ms: x.ms, err: x.err, place, d, near, loc: x.loc };
   }
 
   // a round trip's color: near (t1) to far (t5)
@@ -245,22 +190,6 @@ import { probe, dns, once, readPop } from "./probe.mjs";
   const scale = () => Math.max(200, ...Object.values(R).filter(x => x.ms != null).map(x => x.ms));
   const barHTML = ms => `<i class="rb"><i class="${msTier(ms)}" style="transform:scaleX(${Math.max(.02, Math.min(1, ms / scale())).toFixed(3)})"></i></i>`;
 
-  // an exit for people: "Tokyo, Japan"
-  const exitWhere = e => e ? [e.city, e.cc && country(e.cc)].filter(Boolean).join(", ") || e.letter : "";
-  // The exit a row's request took, when the visitor's traffic has more than one: D, P (P1, P2…) or ?, and how that was
-  // told on hover. One inferred from routing rules is drawn dashed.
-  function routeBadge(el, x) {
-    if (!el) return;
-    const show = !!x && x.ms != null && (x.multi || x.route.how === "own");
-    el.hidden = !show;
-    if (!show) return;
-    const r = x.route, e = r.x && exitBy(r.x);
-    el.textContent = r.x || "?";
-    el.className = "via " + (!r.x ? "rq" : r.x[0] === "D" ? "rd" : "rp") + (r.how === "rule" ? " guess" : "");
-    el.dataset.why = r.x ? t("rt_" + r.how, { x: r.x, where: e ? exitWhere(e) : r.x, cdn: cdnName(x.id), ms: msTxt(x.ms) }) : t(x.route.how === "own" ? "rt_own" : "rt_q");
-    el.tabIndex = 0;
-  }
-
   function fillRow(id) {
     const row = ROW[id];
     if (!row) return;
@@ -268,7 +197,6 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     row.classList.toggle("wait", !x);
     row.classList.toggle("bad", !!x && x.ms == null);
     const failTxt = x && t(x.err === "timeout" ? "r_timeout" : "r_fail");
-    routeBadge(row.querySelector(".via"), x);
     // timed only: a tile
     if (row.classList.contains("tt")) {
       row.querySelector("b").textContent = !x ? "…" : x.ms == null ? failTxt : msTxt(x.ms);
@@ -282,19 +210,17 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     if (x.code) {
       const c = popCode(id, x.code), href = cdn.list && D.popHref ? D.popHref[cdn.list] : null;
       const code = c ? (href && x.place ? `<a href="${esc(href + x.code.toLowerCase() + "/")}">${esc(c)}</a>` : esc(c)) : esc(x.place ? x.place[0] : x.code);
-      const missed = x.d != null && !x.unsure && missedNearest(x.d, x.near)
+      const missed = x.d != null && missedNearest(x.d, x.near)
         ? " " + tag(t("f_notnearest"), "warn", t("f_notnearest_tip", { cdn: cdnName(id), code: popCode(id, x.near[0]), place: placeTxt(x.near[1]), km: kmTxt(x.near[2]) })) : "";
       cp.innerHTML = `<b>${code}</b> <span>${esc(x.place ? (c ? placeTxt(x.place) : country(x.place[1])) : t("r_unknown"))}</span>${missed}`;
     } else cp.innerHTML = x.ms == null ? `<span class="bad">${esc(failTxt)}</span>` : `<b>—</b> <span>${esc(t("r_nopop"))}</span>`;
-    // how far, from the exit it took; from the visitor, dimmed and not judged, when that can't be told
-    if (x.d != null && x.unsure) cd.innerHTML = `<b class="m" data-why="${esc(t("rt_q"))}" tabindex="0">${esc(kmTxt(x.d))}?</b>`;
-    else if (x.d != null) { const tier = tierOf(x.d); cd.innerHTML = `<b class="${tier[1]}">${esc(kmTxt(x.d))}</b> ${tag(t("d_" + tier[2]), tier[1])}`; }
+    // how far
+    if (x.d != null) { const tier = tierOf(x.d); cd.innerHTML = `<b class="${tier[1]}">${esc(kmTxt(x.d))}</b> ${tag(t("d_" + tier[2]), tier[1])}`; }
     else cd.innerHTML = `<b>—</b>`;
     // how long: the least the distance allows on hover, "long way round" when it is far beyond that
     if (x.ms != null) {
-      const sure = x.d != null && !x.unsure;
-      const floor = sure ? t("r_floor", { ms: fmtMs(floorMs(x.dp ?? x.d)) }) : "";
-      const slow = sure && detoured(x.ms, x.dp ?? x.d) ? tag(t("f_slow"), "warn", t("f_slow_tip", { floor: msTxt(floorMs(x.dp ?? x.d)), km: kmTxt(x.dp ?? x.d) })) + " " : "";
+      const floor = x.d != null ? t("r_floor", { ms: fmtMs(floorMs(x.d)) }) : "";
+      const slow = x.d != null && detoured(x.ms, x.d) ? tag(t("f_slow"), "warn", t("f_slow_tip", { floor: msTxt(floorMs(x.d)), km: kmTxt(x.d) })) + " " : "";
       cm.innerHTML = `<b><span>${slow}</span><span${floor ? ` data-why="${esc(floor)}"` : ""}>${esc(msTxt(x.ms))}</span></b>${barHTML(x.ms)}`;
     } else cm.innerHTML = `<b>—</b><i class="rb"><i></i></i>`;
   }
@@ -306,42 +232,16 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     if (f.key === "f_fail") return t("f_fail", { list: names(f.ids) });
     if (f.key === "f_fast") return t("f_fast", { list: names(f.ids), ms: msTxt(FAST) });
     if (f.key === "f_more") return t("f_more", { n: f.n });
-    if (f.key === "f_slowpath") return t("f_slowpath", { cdn: cdnName(r.id), place: placeTxt(r.place), km: kmTxt(r.d), ms: msTxt(r.ms), floor: msTxt(floorMs(r.dp ?? r.d)) });
+    if (f.key === "f_slowpath") return t("f_slowpath", { cdn: cdnName(r.id), place: placeTxt(r.place), km: kmTxt(r.d), ms: msTxt(r.ms), floor: msTxt(floorMs(r.d)) });
     const head = t("f_far", { cdn: cdnName(r.id), place: placeTxt(r.place), km: kmTxt(r.d), ms: msTxt(r.ms) });
     // sentences in Chinese and Japanese follow each other without a space
     return head + (missedNearest(r.d, r.near) ? (/[。！？]$/.test(head) ? "" : " ") + t("f_far_near", { near: [popCode(r.id, r.near[0]), placeTxt(r.near[1])].filter(Boolean).join(" · "), km: kmTxt(r.near[2]) }) : "");
   }
-  // The test's conditions: the exits the visitor's traffic takes, and what that means for the results. One exit: all
-  // direct (the visitor's own network) or all through a proxy (the proxy's network, not theirs). Several: how many CDNs
-  // went each way, as the two can't be compared.
-  function fillCond(final) {
-    const el = $("#cond");
-    if (!el) return;
-    // the CDNs' exits decide the wording; one only this site went through is listed, marked as such
-    const E = exits(), all = SHOWN ? E : EX.list, rows = LIST.map(c => rowOf(c.id)).filter(x => x && x.ms != null);
-    const why = e => !E.includes(e) ? t("ex_site") : e.edge ? t("ex_edge") : "";
-    const chip = e => `<i class="xc ${e.kind === "D" ? "rd" : "rp"}${E.includes(e) ? "" : " site"}"${why(e) ? ` data-why="${esc(why(e))}" tabindex="0"` : ""}><b>${esc(e.letter)}</b>${esc(t(!E.includes(e) ? "ex_site_k" : e.kind === "D" ? "ex_d" : "ex_p"))}` +
-      (exitWhere(e) !== e.letter ? `<span>${esc(exitWhere(e))}${e.org ? " · " + esc(shortOrg(e.org)) : ""}</span>` : "") + `</i>`;
-    let txt;
-    if (SHOWN) txt = SHOWN.multi ? t("cond_shared") : "";
-    else if (!E.length) txt = final ? t("cond_none") : t("cond_wait");
-    else if (E.length === 1) txt = t(E[0].kind === "D" ? "cond_one_d" : "cond_one_p", { x: E[0].letter });
-    else {
-      const n = k => rows.filter(r => r.route.x && r.route.x[0] === k).length, q = rows.filter(r => !r.route.x).length;
-      txt = t("cond_mix", { d: n("D"), p: n("P") }) + (q ? t("cond_q", { n: q }) : "") + t("cond_mix_end");
-    }
-    $("#condEx").innerHTML = SHOWN ? "" : all.map(chip).join("");
-    $("#condTxt").textContent = txt || " ";
-    el.hidden = !txt && !E.length;
-  }
-  const shortOrg = o => String(o || "").replace(/\s+(Private\s+)?(Limited|Ltd\.?|Inc\.?|LLC|Co\.,? Ltd\.?|Corporation|Communications? Corp(oration)?)$/i, "");
-
   function hero(final) {
     const rows = LIST.map(c => rowOf(c.id)).filter(Boolean);
     drawMap(rows, me());
     const v = $("#verdict");
     if (D.kind === "pop" || !v) return;
-    fillCond(final);
     if (D.kind === "cdn") return heroCdn(rowOf(D.cdn), final);
     if (!final) { v.textContent = t("v_wait"); v.className = "verdict"; return; }
     const s = summary(LIST.map(c => rowOf(c.id) || { id: c.id, ms: null }));
@@ -353,18 +253,9 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     $("#stNear").textContent = s.located ? `${s.near} / ${s.located}` : "–";
     $("#stNear").className = s.located ? (s.near * 4 >= s.located * 3 ? "t1" : s.near * 3 <= s.located ? "t5" : "t3") : "";
     const n = LIST.filter(c => R[c.id] && R[c.id].ms != null).length;
-    // direct and through a proxy apart, when the test had both: one median of the two would describe neither
-    const ok = LIST.map(c => rowOf(c.id)).filter(x => x && x.ms != null), by = k => ok.filter(x => x.route.x && x.route.x[0] === k).map(x => x.ms);
-    const mD = median(by("D")), mP = median(by("P"));
-    if (mD != null && mP != null) {
-      $("#stMed").innerHTML = `<span class="${msTier(mD)}">D ${esc(msTxt(mD))}</span> <span class="${msTier(mP)}">P ${esc(msTxt(mP))}</span>`;
-      $("#stMed").className = "two";
-      $("#stMedS").textContent = t("st_med_dp", { d: by("D").length, p: by("P").length });
-    } else {
-      $("#stMed").textContent = s.med != null ? msTxt(s.med) : "–";
-      $("#stMed").className = s.med != null ? msTier(s.med) : "";
-      $("#stMedS").textContent = t("st_med_s", { n });
-    }
+    $("#stMed").textContent = s.med != null ? msTxt(s.med) : "–";
+    $("#stMed").className = s.med != null ? msTier(s.med) : "";
+    $("#stMedS").textContent = t("st_med_s", { n });
     const f = s.farthest;
     $("#stFar").textContent = f ? kmTxt(f.d) : "–";
     $("#stFar").className = f ? tierOf(f.d)[1] : "";
@@ -387,25 +278,18 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     } else if (x.code) {
       const where = x.place ? placeTxt(x.place) : x.code, c = popCode(id, x.code);
       v.textContent = t("pv_pop", { cdn, place: where });
-      v.className = "verdict " + (x.d == null || x.unsure ? "" : isFar(x) ? "warn" : "t1");
-      $("#vsub").textContent = x.d != null ? t("pv_sub", { km: kmTxt(x.d), ms: msTxt(x.ms), floor: msTxt(floorMs(x.dp ?? x.d)) }) : t("pv_sub_noloc", { ms: msTxt(x.ms) });
+      v.className = "verdict " + (x.d == null ? "" : isFar(x) ? "warn" : "t1");
+      $("#vsub").textContent = x.d != null ? t("pv_sub", { km: kmTxt(x.d), ms: msTxt(x.ms), floor: msTxt(floorMs(x.d)) }) : t("pv_sub_noloc", { ms: msTxt(x.ms) });
       set("stPop", c || (x.place ? x.place[0] : x.code), x.place ? (c ? placeTxt(x.place) : country(x.place[1])) : "");
-      if (x.d != null && x.unsure) set("stDist", kmTxt(x.d) + "?", t("ex_from_you"));
-      else if (x.d != null) { const tier = tierOf(x.d); set("stDist", kmTxt(x.d), t("d_" + tier[2]), tier[1]); } else set("stDist", "–");
-      set("stMs", msTxt(x.ms), x.d != null ? t("r_floor", { ms: fmtMs(floorMs(x.dp ?? x.d)) }) : "", msTier(x.ms));
-      if (x.d != null && !x.unsure && missedNearest(x.d, x.near)) out.push(["warn", t("f_notnearest_tip", { cdn, code: popCode(id, x.near[0]), place: placeTxt(x.near[1]), km: kmTxt(x.near[2]) })]);
-      if (x.d != null && !x.unsure && detoured(x.ms, x.dp ?? x.d)) out.push(["warn", t("f_slow_tip", { floor: msTxt(floorMs(x.dp ?? x.d)), km: kmTxt(x.dp ?? x.d) })]);
+      if (x.d != null) { const tier = tierOf(x.d); set("stDist", kmTxt(x.d), t("d_" + tier[2]), tier[1]); } else set("stDist", "–");
+      set("stMs", msTxt(x.ms), x.d != null ? t("r_floor", { ms: fmtMs(floorMs(x.d)) }) : "", msTier(x.ms));
+      if (x.d != null && missedNearest(x.d, x.near)) out.push(["warn", t("f_notnearest_tip", { cdn, code: popCode(id, x.near[0]), place: placeTxt(x.near[1]), km: kmTxt(x.near[2]) })]);
+      if (x.d != null && detoured(x.ms, x.d)) out.push(["warn", t("f_slow_tip", { floor: msTxt(floorMs(x.d)), km: kmTxt(x.d) })]);
     } else {
       // timed only (or it didn't say): the round trip, and how far the edge can be at most
       v.textContent = t(BY[id].read ? "pv_nopop" : "pv_timed", { cdn, ms: msTxt(x.ms) }); v.className = "verdict " + (x.ms < FAST ? "t1" : x.ms < 80 ? "" : "warn");
       $("#vsub").textContent = t("pv_bound", { km: kmTxt(x.ms * 100) });
       set("stPop", t("r_hidden")); set("stDist", "≤ " + kmTxt(x.ms * 100)); set("stMs", msTxt(x.ms), "", msTier(x.ms));
-    }
-    // which way it went, when the visitor's traffic has more than one
-    if (x.ms != null && x.multi) {
-      const r = x.route, e = r.x && exitBy(r.x);
-      out.unshift(!r.x ? ["warn", t("pv_route_q", { cdn })] : r.x[0] === "D" ? ["ok", t("pv_route_d", { cdn, x: r.x })]
-        : ["warn", t("pv_route_p", { cdn, x: r.x, where: e ? exitWhere(e) : r.x })]);
     }
     // next to the others, once they are all in
     const all = CDNS.filter(c => R[c.id] && R[c.id].ms != null);
@@ -420,9 +304,7 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     const m = me();
     if (SHOWN) { el.textContent = m ? [m.city, country(m.cc)].filter(Boolean).join(", ") : t("you_hidden"); if (net) net.textContent = SHOWN.isp || ""; return; }
     if (!m) { el.textContent = t("you_unknown"); return; }
-    // every exit a proxy: the place is the proxy's, not the visitor's
-    const viaProxy = !m.precise && EX.list.length && !EX.list.some(e => e.kind === "D");
-    el.innerHTML = esc([m.city, country(m.cc)].filter(Boolean).join(", ")) + (m.precise ? ` ${tag(t("precise_on"), "t1")}` : viaProxy ? ` ${tag(t("you_proxy"), "warn", t("you_proxy_tip"))}` : "");
+    el.innerHTML = esc([m.city, country(m.cc)].filter(Boolean).join(", ")) + (m.precise ? ` ${tag(t("precise_on"), "t1")}` : "");
     // its network on ASN Lookup: a value made into a link, so a dotted underline and a title, not the external-link mark
     const as = m.asn ? (ASN ? `<a class="q0" href="${esc(ASN + "AS" + m.asn)}" title="${esc(t("asn_t"))}" target="_blank" rel="noopener">AS${m.asn}</a>` : "AS" + m.asn) : "";
     if (net) { net.innerHTML = [esc((m.org || "").replace(/\s+(Private\s+)?(Limited|Ltd\.?|Inc\.?|LLC|Co\.,? Ltd\.?|Corporation)$/i, "")), as].filter(Boolean).join(" "); net.title = m.org || ""; }
@@ -435,10 +317,10 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     if (p) p.style.transform = `scaleX(${done / total})`;
     if (pt) pt.textContent = t("progress", { n: done, of: total });
   }
-  const redraw = () => { if (!SHOWN) regroup(); LIST.forEach(c => fillRow(c.id)); hero(done === total && (EX.ready || !!SHOWN)); fillYou(); if (D.kind === "pop") fillPop(); };
+  const redraw = () => { LIST.forEach(c => fillRow(c.id)); hero(done === total); fillYou(); if (D.kind === "pop") fillPop(); };
 
   /* ---------- the test ---------- */
-  let RUN = null, LAST = null, runs = 0;
+  let RUN = null, LAST = null;
   async function start() {
     if (!$("#shared").hidden) { $("#shared").hidden = true; history.replaceState(null, "", D.paths[D.lang] === D.home ? location.pathname.replace(/\/r\/.*$/, "/") : location.pathname); }
     if (RUN) RUN.abort();
@@ -447,9 +329,6 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     if ($("#shareBtn")) $("#shareBtn").disabled = true;
     if ($("#rerun")) $("#rerun").disabled = true;
     $("#prog") && $("#prog").classList.remove("end");
-    // the exits anew each time: routing rules and proxies change
-    if (runs++) geoP = loadSelf();
-    const exP = findExits();
     redraw(); progress();
     await Promise.all([popsP, placesP]);
     geoP.then(() => { if (!ctl.signal.aborted) redraw(); });
@@ -461,20 +340,12 @@ import { probe, dns, once, readPop } from "./probe.mjs";
         let x;
         try { x = await probe(c, ctl.signal); } catch (e) { return; }
         if (ctl.signal.aborted) return;
-        R[c.id] = x; done++;
-        // a trace names the address the request came from, and the Cloudflare location it reached. This site's own
-        // trace (Cloudflare's last fallback) took this site's route, not the CDN's: it tells nothing about the row.
-        const own = !!x.url && x.url.startsWith("/");
-        if (x.ip) addExit(x.ip, own ? "self" : c.id, c.id === "cfchina" ? { coloCn: x.code } : { colo: x.code });
-        if (own) { x.ip = null; x.own = true; }
-        progress(); redraw();
+        R[c.id] = x; done++; progress(); redraw();
       }
     };
     await Promise.all(Array.from({ length: 5 }, worker));
     if (ctl.signal.aborted) return;
-    await Promise.all([geoP, exP]);
-    if (ctl.signal.aborted) return;
-    EX.ready = true;
+    await geoP;
     RUN = null;
     redraw();
     $("#prog") && $("#prog").classList.add("end");
@@ -491,7 +362,7 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     pBtn.onclick = () => {
       pBtn.disabled = true;
       navigator.geolocation.getCurrentPosition(p => {
-        PRECISE = { lat: p.coords.latitude, lon: p.coords.longitude, precise: true };
+        U = { ...(U || {}), lat: p.coords.latitude, lon: p.coords.longitude, precise: true };
         pBtn.hidden = true; redraw();
       }, () => { pBtn.disabled = false; pBtn.textContent = t("precise_no"); }, { timeout: 15000, maximumAge: 600000 });
     };
@@ -589,10 +460,8 @@ import { probe, dns, once, readPop } from "./probe.mjs";
   // Opening /r/<code> shows that result as the test drew it, and doesn't test until the visitor asks
   async function showShared(S) {
     await Promise.all([popsP, placesP]);
-    // the sharer's exits (their places only when they showed theirs); several when the rows went different ways
-    const letters = new Set(S.rows.filter(x => x.route).map(x => x.route.x));
-    SHOWN = { where: S.where, exits: S.exits.map(e => ({ ...e, kind: e.letter[0] })), multi: letters.size > 1 || S.rows.some(x => x.route && x.route.how !== "one") };
-    R = Object.fromEntries(S.rows.map(x => [x.id, { ms: x.ms, code: x.code, route: x.route, err: x.ms == null ? "fail" : null }]));
+    SHOWN = { where: S.where };
+    R = Object.fromEntries(S.rows.map(x => [x.id, { ms: x.ms, code: x.code, err: x.ms == null ? "fail" : null }]));
     done = total;
     if (S.site) { SITE = S.site; if ($("#siteIn")) $("#siteIn").value = S.site.host; }
     redraw(); fillSite();
@@ -609,18 +478,16 @@ import { probe, dns, once, readPop } from "./probe.mjs";
   const shareBtn = $("#shareBtn");
   if (shareBtn) shareBtn.onclick = async () => {
     if (!LAST) return;
-    const S = LAST.shared || null, m = S ? S.where : me();
-    // each row with the exit it took (the letter only: no address), and the exits' places when the sharer shows theirs
-    const rows = S ? S.rows : LIST.map(c => R[c.id] ? { id: c.id, code: R[c.id].code, ms: R[c.id].ms, route: EX.list.length ? EX.rt[c.id] : null } : null).filter(Boolean);
-    const exs = S ? S.exits : exits().filter(e => e.kind === "P");
+    const S = LAST.shared || null, m = S ? S.where : U;
+    const rows = S ? S.rows : LIST.map(c => R[c.id] ? { id: c.id, code: R[c.id].code, ms: R[c.id].ms } : null).filter(Boolean);
     const site = S ? S.site : SITE ? { cdn: SITE.cdn, code: SITE.code, ms: SITE.ms, host: SITE.host } : null;
-    const isp = S ? S.isp : m && m.org || "";
+    const isp = S ? S.isp : U && U.org || "";
     const where = m && m.cc ? { cc: m.cc, lat: m.lat, lon: m.lon, city: m.city || "" } : null;
     const { share } = await import("/assets/share/share.js");
     share({
       lang: D.lang, name: t("app_name"), file: "cdn-radar",
       show: ["city", "isp"], never: ["ip"], canShow: !!where,
-      link: show => location.origin + D.home + "r/" + encodeShare({ ts: LAST.ts, where: show ? where : null, isp: show ? isp : "", rows, site, exits: show ? exs : null }),
+      link: show => location.origin + D.home + "r/" + encodeShare({ ts: LAST.ts, where: show ? where : null, isp: show ? isp : "", rows, site }),
       home: location.origin + D.home,
       text: () => { const b = rows.filter(x => x.ms != null).sort((a, b) => a.ms - b.ms)[0]; return b ? t("share_text", { cdn: cdnName(b.id), ms: msTxt(b.ms) }) : t("app_name"); },
       height: 330 + Math.ceil(rows.length / 2) * 56 + (site ? 110 : 0),
@@ -642,8 +509,6 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     x.fillStyle = C.muted; x.font = `500 22px ${F}`; x.fillText(clip(x, $("#vsub") ? $("#vsub").textContent : "", W - 2 * P), P, y);
     y += 50;
     const colW = (W - 2 * P - 40) / 2;
-    // the exit each row took, when they went different ways
-    const multi = new Set(rows.map(r => r.route && r.route.x).filter(Boolean)).size > 1;
     rows.forEach((r, i) => {
       const cx = P + (i % 2) * (colW + 40), cy = y + Math.floor(i / 2) * 56;
       const place = r.code ? placeOf(r.id, r.code, DATA.pops || {}, DATA.places) : null;
@@ -655,7 +520,7 @@ import { probe, dns, once, readPop } from "./probe.mjs";
       const where = r.code ? [popCode(r.id, r.code), place && (popCode(r.id, r.code) ? place[0] : place[0])].filter(Boolean).filter((s, j, a) => a.indexOf(s) === j).join(" ") : "—";
       x.fillText(clip(x, where, colW * .38), cx + 24 + colW * .42, cy);
       x.textAlign = "right"; x.fillStyle = r.ms == null ? C.bad : C.fg; x.font = `650 22px ${M}`;
-      x.fillText(r.ms == null ? "—" : (multi ? (r.route && r.route.x || "?") + " " : "") + msTxt(r.ms), cx + colW, cy); x.textAlign = "left";
+      x.fillText(r.ms == null ? "—" : msTxt(r.ms), cx + colW, cy); x.textAlign = "left";
     });
     if (site) {
       const sy = y + Math.ceil(rows.length / 2) * 56 + 16;

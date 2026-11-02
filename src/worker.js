@@ -1,9 +1,7 @@
 // The CDN Radar Worker. Files in ./public are served before it runs, so it only sees paths that are not files:
 //   /dns?name=<host>      the site check's DNS, asked from the edge (Cloudflare's resolver): { cnames, ips }
-//   /geo                  the address this request came from and where Cloudflare places it (its IP geolocation),
-//                         with the Cloudflare location it reached: one of the exits the page tells apart. On 1ms.dog
-//                         the page asks the shell's /_ms/me (the same, for every tool) first. Never stored or
-//                         logged; not cached.
+//   /geo                  where Cloudflare places the visitor (its IP geolocation of this request): the page's
+//                         distances start there. Never stored or logged; not cached.
 //   /r/<code>, /<lang>/r/<code>   a shared result: that language's page with the locations in its title (what chat
 //                         apps show as the link's preview), not indexed; the page itself reads the code and shows the
 //                         result (src/lib.mjs); a code it can't read is a 404
@@ -45,7 +43,7 @@ const notFound = req => new Response(req.method === "HEAD" ? null : "Not found\n
 
 function geo(req) {
   const cf = req.cf || {}, n = v => v == null || v === "" ? null : +v;
-  const body = { ip: req.headers.get("cf-connecting-ip") || null, cc: cf.country || null, city: cf.city || null, region: cf.region || null, lat: n(cf.latitude), lon: n(cf.longitude),
+  const body = { cc: cf.country || null, city: cf.city || null, region: cf.region || null, lat: n(cf.latitude), lon: n(cf.longitude),
     asn: cf.asn || null, org: cf.asOrganization || null, colo: cf.colo || null };
   return new Response(JSON.stringify(body), { headers: { "content-type": "application/json; charset=utf-8", "cache-control": "private, no-store",
     "x-robots-tag": "noindex" } });
