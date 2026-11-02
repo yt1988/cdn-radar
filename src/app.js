@@ -168,6 +168,7 @@ import { probe, dns, once, readPop } from "./probe.mjs";
   let R = {};            // results so far, by CDN id: { ms, code, err, loc? }
   let SHOWN = null;      // a shared result being shown: its visitor location (or null)
   let SITE = null;       // the site check's result
+  let SUB = "";          // the verdict's second line, for the share card (the page shows it in the numbers)
   const me = () => SHOWN ? SHOWN.where : U;
   const listFmt = (() => { try { return new Intl.ListFormat(D.lang, { type: "conjunction" }); } catch (e) { return { format: a => a.join(", ") }; } })();
   const names = ids => listFmt.format(ids.map(cdnName));
@@ -249,7 +250,7 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     if (SHOWN && !me() && s.key === "v_noloc") s.key = "v_hidden";
     v.textContent = t(s.key);
     v.className = "verdict " + ({ v_good: "t1", v_mixed: "warn", v_far: "bad", v_none: "bad" }[s.key] || "");
-    $("#vsub").textContent = s.located ? t("v_sub", { n: s.located, near: s.near, far: s.far }) : " ";
+    SUB = s.located ? t("v_sub", { n: s.located, near: s.near, far: s.far }) : "";
     $("#stNear").textContent = s.located ? `${s.near} / ${s.located}` : "–";
     $("#stNear").className = s.located ? (s.near * 4 >= s.located * 3 ? "t1" : s.near * 3 <= s.located ? "t5" : "t3") : "";
     const n = LIST.filter(c => R[c.id] && R[c.id].ms != null).length;
@@ -273,13 +274,13 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     const out = [];
     if (x.ms == null) {
       v.textContent = t("pv_fail", { cdn }); v.className = "verdict bad";
-      $("#vsub").textContent = t("pv_fail_sub");
+      SUB = t("pv_fail_sub"); out.push(["bad", SUB]);
       set("stPop", "–"); set("stDist", "–"); set("stMs", "–");
     } else if (x.code) {
       const where = x.place ? placeTxt(x.place) : x.code, c = popCode(id, x.code);
       v.textContent = t("pv_pop", { cdn, place: where });
       v.className = "verdict " + (x.d == null ? "" : isFar(x) ? "warn" : "t1");
-      $("#vsub").textContent = x.d != null ? t("pv_sub", { km: kmTxt(x.d), ms: msTxt(x.ms), floor: msTxt(floorMs(x.d)) }) : t("pv_sub_noloc", { ms: msTxt(x.ms) });
+      SUB = x.d != null ? t("pv_sub", { km: kmTxt(x.d), ms: msTxt(x.ms), floor: msTxt(floorMs(x.d)) }) : t("pv_sub_noloc", { ms: msTxt(x.ms) });
       set("stPop", c || (x.place ? x.place[0] : x.code), x.place ? (c ? placeTxt(x.place) : country(x.place[1])) : "");
       if (x.d != null) { const tier = tierOf(x.d); set("stDist", kmTxt(x.d), t("d_" + tier[2]), tier[1]); } else set("stDist", "–");
       set("stMs", msTxt(x.ms), x.d != null ? t("r_floor", { ms: fmtMs(floorMs(x.d)) }) : "", msTier(x.ms));
@@ -288,7 +289,7 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     } else {
       // timed only (or it didn't say): the round trip, and how far the edge can be at most
       v.textContent = t(BY[id].read ? "pv_nopop" : "pv_timed", { cdn, ms: msTxt(x.ms) }); v.className = "verdict " + (x.ms < FAST ? "t1" : x.ms < 80 ? "" : "warn");
-      $("#vsub").textContent = t("pv_bound", { km: kmTxt(x.ms * 100) });
+      SUB = t("pv_bound", { km: kmTxt(x.ms * 100) }); out.push(["ok", SUB]);
       set("stPop", t("r_hidden")); set("stDist", "≤ " + kmTxt(x.ms * 100)); set("stMs", msTxt(x.ms), "", msTier(x.ms));
     }
     // next to the others, once they are all in
@@ -506,7 +507,7 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     x.textBaseline = "alphabetic"; x.textAlign = "left";
     x.fillStyle = C.fg; x.font = `750 40px ${F}`; x.fillText(clip(x, $("#verdict") ? $("#verdict").textContent : t("app_name"), W - 2 * P), P, y);
     y += 46;
-    x.fillStyle = C.muted; x.font = `500 22px ${F}`; x.fillText(clip(x, $("#vsub") ? $("#vsub").textContent : "", W - 2 * P), P, y);
+    x.fillStyle = C.muted; x.font = `500 22px ${F}`; x.fillText(clip(x, SUB, W - 2 * P), P, y);
     y += 50;
     const colW = (W - 2 * P - 40) / 2;
     rows.forEach((r, i) => {

@@ -132,8 +132,8 @@ export async function build() {
       const tiles = order.filter(c => !c.read).map(c => "        " + tileHTML(c, c.id === first)).join("\n");
       return `    <section class="hero card${first ? " one" : ""}">
       <h1>${esc(h1)}</h1>${intro ? `\n      <p class="intro">${esc(intro)}</p>` : ""}
-      <div class="verd"><p class="verdict" id="verdict">${esc(T("v_wait"))}</p><p class="vsub" id="vsub">&nbsp;</p></div>
-      <p class="ctl"><span>${esc(T("cond_note"))}</span><button class="lnk" id="rulesBtn" type="button" aria-haspopup="dialog" aria-controls="rules">${esc(T("cond_ctl"))}</button></p>
+      <div class="verd"><p class="verdict" id="verdict">${esc(T("v_wait"))}</p>
+      <p class="ctl"><span>${esc(T("cond_note"))}</span><button class="lnk" id="rulesBtn" type="button" aria-haspopup="dialog" aria-controls="rules">${esc(T("cond_ctl"))}</button></p></div>
       <div class="stats">
         ${first ? stat("stPop", T("c_pop")) + stat("stDist", T("c_dist")) + stat("stMs", T("c_ms"))
           : stat("stNear", T("st_near"), T("st_near_s")) + stat("stMed", T("st_med")) + stat("stFar", T("st_far"))}
