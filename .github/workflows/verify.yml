@@ -1,0 +1,16 @@
+# Every Monday (and by hand): check every CDN's test file from GitHub's US data centers. A failure means a file moved,
+# stopped letting pages read its location, or now answers from the origin: src/cdns.mjs needs a look.
+name: verify
+on:
+  schedule:
+    - cron: "37 4 * * 1"
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/verify.mjs

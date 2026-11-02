@@ -1,0 +1,28 @@
+{
+  "name": "cdn-radar",
+  "private": true,
+  "type": "module",
+  "description": "CDN Radar: which location of each big CDN (Cloudflare, Akamai, CloudFront, Fastly, Azure Front Door…) answers you, how far it is and how long a round trip takes, measured in your browser",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node scripts/build.mjs && node --test \"test/*.test.mjs\"",
+    "data": "node scripts/data.mjs",
+    "verify": "node scripts/verify.mjs",
+    "assets": "node scripts/assets.mjs",
+    "dev": "npx wrangler dev --port 8800",
+    "deploy": "node scripts/build.mjs && npx wrangler deploy"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "d3-geo": "^3.1.1",
+    "esbuild": "0.25.10",
+    "topojson-client": "^3.1.0",
+    "world-atlas": "^2.0.2"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yt1988/cdn-radar"
+  },
+  "homepage": "https://cdn.1ms.dog"
+}

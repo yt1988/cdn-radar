@@ -1,0 +1,72 @@
+/* CDN Radar. Same tokens as the other 1ms.dog tools, so the site's top bar and the page switch theme together.
+   The accent is sky blue; distances and times run from green (fast, t1) to red (slow, t5). */
+:root {
+  --bg: #f6f6f7; --panel: #ffffff; --soft: #f0f0f2; --line: #e4e4e8;
+  --fg: #141416; --muted: #6e6e78; --ink: #0284c7; --ink-fg: #ffffff; --ink-soft: #0284c714;
+  --warn: #b86e00; --warn-soft: #b86e001f; --bad: #d23a2f;
+  /* time tiers, fast to slow (t1…t5); t0 unused */
+  --t0: #8b5cf6; --t1: #1a8a5a; --t2: #3d7d1e; --t3: #8a6700; --t4: #b0530a; --t5: #d23a2f;
+  --shadow: #0000001c;
+  --f-ui: "Geist", "PingFang SC", "Microsoft YaHei", "Hiragino Sans", "Yu Gothic", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans", system-ui, sans-serif;
+  --f-num: "Geist Mono", ui-monospace, "SF Mono", Consolas, monospace;
+  --r: 14px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #1c1c1c; --panel: #232323; --soft: #2a2a2a; --line: #363636;
+  --fg: #ededed; --muted: #a0a0a0; --ink: #38bdf8; --ink-fg: #082f49; --ink-soft: #38bdf81f;
+  --warn: #f5a524; --warn-soft: #f5a52424; --bad: #f56565;
+  --t0: #c4a7ff; --t1: #3ecf8e; --t2: #9fd356; --t3: #f5c524; --t4: #f59e42; --t5: #f56565;
+  --shadow: #00000080;
+  color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #1c1c1c; --panel: #232323; --soft: #2a2a2a; --line: #363636;
+  --fg: #ededed; --muted: #a0a0a0; --ink: #38bdf8; --ink-fg: #082f49; --ink-soft: #38bdf81f;
+  --warn: #f5a524; --warn-soft: #f5a52424; --bad: #f56565;
+  --t0: #c4a7ff; --t1: #3ecf8e; --t2: #9fd356; --t3: #f5c524; --t4: #f59e42; --t5: #f56565;
+  --shadow: #00000080;
+  color-scheme: dark; }
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; }
+html { background: var(--bg); scrollbar-gutter: stable; }   /* reserve the scrollbar's space, so the page doesn't shift when one appears */
+body { background: var(--bg); color: var(--fg); font: 14px/1.5 var(--f-ui); -webkit-font-smoothing: antialiased; }
+.app { max-width: 1080px; margin: 0 auto; padding-block: 20px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 20px; }
+main { display: flex; flex-direction: column; gap: 20px; }
+button, select { font: inherit; color: inherit; }
+a { color: inherit; }
+h1, h2, h3, p { margin: 0; }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.m { color: var(--muted); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); }
+svg[viewBox="0 0 16 16"] { fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+
+/* top bar */
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; min-width: 0; overflow: hidden; border-radius: 8px; }
+.logo { display: block; width: 90px; height: 36px; flex: none; }
+.logo img { display: block; width: 90px; height: 36px; }
+.brand-name { font-size: 20px; font-weight: 700; letter-spacing: -.02em; white-space: nowrap; }
+@media (max-width: 720px) { .brand-name { font-size: 17px; } }
+@media (max-width: 520px) { .brand-name { display: none; } }
+.logo-dark { display: none !important; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .logo-light { display: none !important; } :root:not([data-theme="light"]) .logo-dark { display: block !important; } }
+:root[data-theme="dark"] .logo-light { display: none !important; }
+:root[data-theme="dark"] .logo-dark { display: block !important; }
+.top-acts { display: flex; gap: 8px; align-items: center; }
+.sel { position: relative; display: flex; align-items: center; height: 34px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); padding-left: 10px; }
+.sel svg { width: 15px; height: 15px; color: var(--muted); flex: none; }
+/* the open list is drawn by the OS: without its own colors it stays light in the dark theme */
+select option, select optgroup { background-color: var(--panel); color: var(--fg); }
+select option:checked { background-color: var(--soft); }
+.sel select { appearance: none; -webkit-appearance: none; border: 0; background: transparent; height: 100%; padding: 0 12px 0 7px; cursor: pointer; outline: none; }
+.icon-btn { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); cursor: pointer; padding: 0; }
+.icon-btn svg { width: 16px; height: 16px; }
+/* the GitHub mark is a filled shape, unlike the stroked icons */
+.gh svg { fill: currentColor; stroke: none; }
+#theme svg { display: none; }
+#theme[data-th="system"] .i-sys, #theme[data-th="light"] .i-light, #theme[data-th="dark"] .i-dark, #theme:not([data-th]) .i-sys { display: block; }

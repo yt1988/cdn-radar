@@ -1,0 +1,337 @@
+#!/usr/bin/env node
+// Builds the site in public/ (not committed: Workers Builds runs this before deploying) from src/, data/ and static/:
+//   index.html, <lang>/index.html                 the test, every CDN's row drawn in it
+//   <cdn>/index.html, <lang>/<cdn>/…              the same test as a page about one CDN: its row first, how its
+//                                                 location is read, and its locations when it publishes them
+//   <list>/<code>/index.html, <lang>/<list>/<code>/…   one page per location of the CDNs that publish theirs
+//                                                 (Cloudflare, Bunny, Wikimedia: data/pops.json), with a test of
+//                                                 whether it's the one that serves you
+//   assets/app.<hash>.js, .css, l.<lang>.<hash>.js the page's code, styles and strings
+//   assets/pops.<hash>.json, places.<hash>.json   the locations and where codes are (data/), fetched by the page
+//   assets/map.<hash>.svg                         the world's land for the map (world-atlas, Natural Earth 1:110m)
+//   sitemap.xml (and one per language), robots.txt, llms.txt, _headers
+//   static/…                                      copied as they are: fonts, logos, the share dialog, icons, og/
+// The Worker (src/worker.js: /geo and shared results under /r/) is deployed from source by wrangler.
+// Usage: node scripts/build.mjs
+import { mkdir, readFile, readdir, writeFile, rm, cp } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { fileURLToPath } from "node:url";
+import { build as bundle, transform } from "esbuild";
+import { feature } from "topojson-client";
+import { geoEquirectangular, geoPath } from "d3-geo";
+import { CDNS, BY, nameOf } from "../src/cdns.mjs";
+import { km } from "../src/lib.mjs";
+
+const SITE = (process.env.SITE_URL || "https://cdn.1ms.dog").replace(/\/+$/, "");
+const root = new URL("../", import.meta.url), pub = new URL("public/", root), src = new URL("src/", root);
+// language, URL folder, og:locale; the first is the root
+export const LANGS = [["en", "", "en_US"], ["zh-CN", "zh-cn", "zh_CN"], ["zh-TW", "zh-tw", "zh_TW"], ["ja", "ja", "ja_JP"], ["ko", "ko", "ko_KR"],
+  ["es", "es", "es_ES"], ["fr", "fr", "fr_FR"], ["de", "de", "de_DE"], ["pt", "pt", "pt_BR"], ["ru", "ru", "ru_RU"]];
+// the CDNs whose every location has a page
+export const LISTS = ["cloudflare", "bunny", "wikimedia"];
+
+// Runs before first paint: apply the saved theme. On an English page, send visitors to their language's (a saved
+// choice first, then the browser languages), and a shared result /r/<code> to /<lang>/r/<code>; crawlers and English
+// readers stay.
+const PREPAINT = `(function(){var d=document.documentElement,th=null,s=null;try{th=localStorage.getItem("cdnradar:theme");s=localStorage.getItem("cdnradar:lang")}catch(e){}if(th==="light"||th==="dark")d.setAttribute("data-theme",th);if(!d.hasAttribute("data-root"))return;var P=JSON.parse(d.getAttribute("data-paths")||"{}"),l=null;try{var q=new URLSearchParams(location.search).get("lang");if(P[q])l=q}catch(e){}if(!l&&P[s])l=s;for(var ls=navigator.languages||[navigator.language||"en"],i=0;!l&&!s&&i<ls.length;i++){var x=String(ls[i]).toLowerCase(),b=x.split("-")[0];l=b==="zh"?(/tw|hk|mo|hant/.test(x)?"zh-TW":"zh-CN"):P[b]?b:null}var p=location.pathname,t=p===P.en?"":p.indexOf("/r/")===0?p.slice(1):null;if(l&&l!=="en"&&t!==null)location.replace(P[l]+t+location.search+location.hash)})();`;
+
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const hash = s => createHash("sha256").update(s).digest("hex").slice(0, 10);
+const sha = s => createHash("sha256").update(s).digest("base64");
+const fill = (s, v) => s.replace(/\{(\w+)\}/g, (m, k) => k in v ? v[k] : m);
+const pathOf = (slug, dir = "") => "/" + (slug ? slug + "/" : "") + dir;
+const json = x => JSON.stringify(x).replace(/</g, "\\u003c");
+const EXT = '<svg class="ext" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2.5h4.5V7M13.5 2.5 7.5 8.5M12 10v3.5H2.5V4H6"/></svg>';
+
+async function loadI18n() {
+  const out = {};
+  for (const f of (await readdir(new URL("i18n/", src))).filter(f => f.endsWith(".mjs")))
+    out[f.slice(0, -4)] = (await import(new URL("i18n/" + f, src).href + "?" + Date.now())).default;
+  return out;
+}
+
+// Strings only the build uses (the page has them already); the rest go to the browser
+const BUILD_ONLY = new Set(["name", "seo_title", "seo_desc", "seo_kw", "og_sub", "h1", "docs", "lang_label", "faq_h", "h_cdns", "cdns_sub", "c_cdn", "c_pop",
+  "c_dist", "c_ms", "n_pops", "n_read", "n_hidden", "you_k", "precise", "h_site", "site_sub", "site_ph", "site_go", "ask", "ask_sub", "egress_link", "cost_link",
+  "speed_link", "home_link", "share_title", "share_desc", "cdn_title", "cdn_desc", "cdn_desc_list", "cdn_kw", "cdn_h1", "cdn_og", "how_h", "how_trace", "how_header",
+  "how_timing", "how_none", "list_h", "list_cn", "more_cdns", "pop_title", "pop_desc", "pop_kw", "pop_h1", "pop_intro", "f_code", "f_city", "f_country",
+  "f_coord", "f_net", "pop_cn", "pop_global", "near_h", "cc_h", "crumb_all"]);
+
+// The map's land: Natural Earth 1:110m (world-atlas), on an equirectangular world from 84°N to 58°S, 1 unit a degree
+async function mapSvg() {
+  const topo = JSON.parse(await readFile(new URL("node_modules/world-atlas/land-110m.json", root), "utf8"));
+  const proj = geoEquirectangular().scale(180 / Math.PI).translate([180, 84]).precision(.2);
+  const d = geoPath(proj).digits(1)(feature(topo, topo.objects.land));
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 142"><path d="${d}"/></svg>`;
+}
+
+export async function build() {
+  const I = await loadI18n(), en = I.en;
+  const langs = LANGS.filter(([l]) => I[l]);
+  for (const [l] of langs) for (const k of Object.keys(en)) if (!(k in I[l])) throw new Error(`i18n/${l}.mjs is missing "${k}"`);
+  const tpl = await readFile(new URL("page.html", src), "utf8");
+  const POPS = JSON.parse(await readFile(new URL("data/pops.json", root), "utf8"));
+  const PLACES = await readFile(new URL("data/places.json", root), "utf8");
+
+  const js = (await bundle({ entryPoints: [fileURLToPath(new URL("app.js", src))], bundle: true, minify: true, format: "iife", target: "es2020",
+    legalComments: "none", write: false, absWorkingDir: fileURLToPath(root), external: ["/assets/share/*"] })).outputFiles[0].text;
+  const css = (await transform((await Promise.all(["fonts.css", "base.css", "style.css"].map(f => readFile(new URL(f, src), "utf8")))).join("\n"),
+    { loader: "css", minify: true, legalComments: "none" })).code;
+  const popsJ = JSON.stringify(POPS), map = await mapSvg();
+  const F = { js: `app.${hash(js)}.js`, css: `app.${hash(css)}.css`, pops: `pops.${hash(popsJ)}.json`, places: `places.${hash(PLACES)}.json`, map: `map.${hash(map)}.svg` };
+  const files = { ["assets/" + F.js]: js, ["assets/" + F.css]: css, ["assets/" + F.pops]: popsJ, ["assets/" + F.places]: PLACES.trim(), ["assets/" + F.map]: map };
+  const sitemaps = Object.fromEntries(langs.map(([l]) => [l, []]));
+
+  for (const [lang, slug, locale] of langs) {
+    const d = I[lang], T = (k, v) => { if (!(k in d)) throw new Error(`i18n/${lang}.mjs has no "${k}"`); return v ? fill(d[k], v) : d[k]; };
+    const strings = Object.fromEntries(Object.keys(en).filter(k => !BUILD_ONLY.has(k)).map(k => [k, T(k)]));
+    const sjs = `window.L1MS=${json(strings)};\n`, sName = `l.${lang.toLowerCase()}.${hash(sjs)}.js`;
+    files["assets/" + sName] = sjs;
+    const regions = new Intl.DisplayNames([lang], { type: "region" }), country = cc => { try { return regions.of(cc); } catch (e) { return cc; } };
+    const cname = c => nameOf(c, lang);
+    const docs = T("docs").map(([q, a]) => ({ q, h: a.split(/\n+/).map(p => `<p>${esc(p)}</p>`).join(""), t: a.replace(/\n+/g, " ") }));
+    const helpNav = docs.map((x, i) => `<button type="button" role="tab" data-hq="${i}" aria-selected="${i === 0}">${esc(x.q)}</button>`).join("");
+    const helpC = docs.map((x, i) => `<article data-hqb="${i}"${i ? " hidden" : ""}><h3>${esc(x.q)}</h3>${x.h}</article>`).join("");
+    const langOpts = langs.map(([l]) => `<option value="${l}"${l === lang ? " selected" : ""}>${esc(I[l].name)}</option>`).join("");
+    const popHref = Object.fromEntries(LISTS.map(l => [l, pathOf(slug, l + "/")]));
+    const linkOut = (id, k) => `<a id="${id}" hidden target="_blank" rel="noopener"><span>${esc(T(k))}</span>${EXT}</a>`;
+
+    // the test: the hero with the map and the verdict, one row per CDN (the page's own CDN first), the site check
+    const toolMain = ({ h1, intro, first }) => {
+      const order = first ? [BY[first], ...CDNS.filter(c => c.id !== first)] : CDNS;
+      const rows = order.map(c => {
+        const n = c.list && POPS[c.list] ? (c.id === "cfchina" ? POPS.cloudflare.filter(p => p[2] === "CN").length : POPS[c.list].length) : 0;
+        const sub = n ? T("n_pops", { n }) : c.read ? T("n_read") : T("n_hidden");
+        return `      <div class="cr wait${c.id === first ? " me" : ""}" data-c="${c.id}" style="--c:${c.c}"><span class="cn"><b><i class="dot"></i><a href="${pathOf(slug, c.id + "/")}">${esc(cname(c))}</a></b><span>${esc(sub)}</span></span>` +
+          `<span class="cp"><b>…</b><span>&nbsp;</span></span><span class="cd"><b>…</b><span>&nbsp;</span></span><span class="cm"><b>…</b><span>&nbsp;</span></span></div>`;
+      }).join("\n");
+      return `    <section class="hero card">
+      <h1>${esc(h1)}</h1>${intro ? `\n      <p class="intro">${esc(intro)}</p>` : ""}
+      <div class="sum">
+        <div class="map" style="--map:url(/assets/${F.map})"><svg id="mapo" viewBox="0 0 360 142" aria-hidden="true"></svg></div>
+        <div class="sum-r">
+          <p class="verdict" id="verdict">${esc(T("v_wait"))}</p>
+          <p class="probs" id="probs">&nbsp;</p>
+          <div class="you"><span class="you-k">${esc(T("you_k"))}</span><span class="you-v" id="you"><i class="skl"></i></span><button class="mini" id="precise" type="button">${esc(T("precise"))}</button></div>
+          <p class="links">${linkOut("egressLink", "egress_link")}${linkOut("speedLink", "speed_link")}${linkOut("homeLink", "home_link")}</p>
+        </div>
+      </div>
+      <div class="bar">
+        <div class="prog" id="prog"><i></i></div>
+        <span class="prog-t" id="progTxt">&nbsp;</span>
+        <button class="btn sm" id="shareBtn" type="button" aria-haspopup="dialog" disabled><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 10V2M5 5l3-3 3 3M3 9v4.5h10V9"/></svg><span>${esc(T("share"))}</span></button>
+        <button class="btn pri" id="rerun" type="button" disabled><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2v3h-3"/></svg><span>${esc(T("rerun"))}</span></button>
+      </div>
+    </section>
+
+    <section class="cdns card" aria-labelledby="cdnsT">
+      <div class="cdns-h"><h2 id="cdnsT">${esc(T("h_cdns"))}</h2><span class="sub">${esc(T("cdns_sub"))}</span></div>
+      <div class="ct">
+      <div class="cr ch"><span>${esc(T("c_cdn"))}</span><span>${esc(T("c_pop"))}</span><span>${esc(T("c_dist"))}</span><span>${esc(T("c_ms"))}</span></div>
+${rows}
+      </div>
+    </section>
+
+    <section class="site card" aria-labelledby="siteT">
+      <div class="cdns-h"><h2 id="siteT">${esc(T("h_site"))}</h2><span class="sub">${esc(T("site_sub"))}</span></div>
+      <form class="site-f" id="siteForm"><input id="siteIn" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${esc(T("site_ph"))}" aria-label="${esc(T("h_site"))}"><button class="btn pri" type="submit">${esc(T("site_go"))}</button></form>
+      <p class="site-res" id="siteRes"><b>&nbsp;</b><span>&nbsp;</span></p>
+      <div class="ask"><button class="btn sm" id="askBtn" type="button"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="8.5" height="8.5" rx="1.5"/><path d="M3 10.5V3.8C3 3.1 3.6 2.5 4.3 2.5H11"/></svg><span>${esc(T("ask"))}</span></button><span class="m">${esc(T("ask_sub"))}</span></div>
+      <p class="links">${linkOut("costLink", "cost_link")}</p>
+    </section>`;
+    };
+
+    // how a CDN's location is read, and its locations by country (linked to their pages)
+    const cdnArticle = c => {
+      const host = new URL(c.url).host, how = !c.read ? "how_none" : c.read === "trace" ? "how_trace" : c.read.startsWith("st:") ? "how_timing" : "how_header";
+      let out = `<h2>${esc(T("how_h"))}</h2><p>${esc(T(how, { cdn: cname(c), host, header: c.read ? c.read.slice(c.read.indexOf(":") + 1).replace(/(^|-)([a-z])/g, (m, a, b) => a + b.toUpperCase()) : "" }))}</p>`;
+      if (c.list) {
+        const all = c.id === "cfchina" ? POPS.cloudflare.filter(p => p[2] === "CN") : POPS[c.list], by = {};
+        for (const p of all) (by[p[2]] = by[p[2]] || []).push(p);
+        const ccs = Object.keys(by).sort((a, b) => country(a).localeCompare(country(b), lang));
+        out += `<h2>${esc(T("list_h", { n: all.length, cdn: cname(c) }))}</h2>`;
+        if (c.id === "cloudflare") out += `<p>${esc(T("list_cn", { n: POPS.cloudflare.filter(p => p[2] === "CN").length }))}</p>`;
+        out += `<dl class="plist">` + ccs.map(cc => `<dt>${esc(country(cc))}</dt><dd>` +
+          by[cc].map(p => `<a href="${popHref[c.list]}${p[0].toLowerCase()}/">${esc(p[0])}<span>${esc(p[1])}</span></a>`).join("") + `</dd>`).join("") + `</dl>`;
+      }
+      out += `<h2>${esc(T("more_cdns"))}</h2><p class="others">` + CDNS.filter(x => x.id !== c.id).map(x => `<a href="${pathOf(slug, x.id + "/")}">${esc(cname(x))}</a>`).join("") + `</p>`;
+      return `<article class="art card">${out}</article>`;
+    };
+
+    // a location: what and where it is, the test, its nearest neighbors and the other CDNs in its country
+    const popMain = (list, p) => {
+      const c = BY[list], [code, city, cc, lat, lon] = p, all = POPS[list], tested = list === "cloudflare" && cc === "CN" ? "cfchina" : list;
+      const near = all.filter(x => x[0] !== code).map(x => [x, km(lat, lon, x[3], x[4])]).sort((a, b) => a[1] - b[1]).slice(0, 8);
+      const others = LISTS.filter(l => l !== list).flatMap(l => POPS[l].filter(x => x[2] === cc).map(x => [l, x]));
+      const kmF = v => T("r_km", { km: new Intl.NumberFormat(lang).format(Math.round(v)) });
+      const facts = [[T("f_code"), code], [T("f_city"), city], [T("f_country"), country(cc)], [T("f_coord"), `${lat.toFixed(2)}, ${lon.toFixed(2)}`]];
+      if (list === "cloudflare") facts.push([T("f_net"), cc === "CN" ? T("pop_cn") : T("pop_global")]);
+      const X = lon + 180, Y = 84 - lat;
+      return `    <section class="hero card popp">
+      <nav class="crumbs"><a href="${pathOf(slug)}">${esc(T("app_name"))}</a><span>/</span><a href="${pathOf(slug, tested + "/")}">${esc(cname(BY[tested]))}</a><span>/</span><span>${esc(code)}</span></nav>
+      <h1>${esc(T("pop_h1", { cdn: cname(c), city, code }))}</h1>
+      <p class="intro">${esc(T("pop_intro", { cdn: cname(c), n: all.length }))}</p>
+      <div class="sum">
+        <div class="map" style="--map:url(/assets/${F.map})"><svg viewBox="0 0 360 142" aria-hidden="true"><circle cx="${X.toFixed(1)}" cy="${Y.toFixed(1)}" r="5" class="here-ring"/><circle cx="${X.toFixed(1)}" cy="${Y.toFixed(1)}" r="2.6" fill="${c.c}"/></svg><svg id="mapo" viewBox="0 0 360 142" aria-hidden="true"></svg></div>
+        <dl class="facts">${facts.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>
+      </div>
+      <div class="cr wait poprow" data-c="${tested}" hidden><span class="cn"><b></b><span></span></span><span class="cp"><b></b><span></span></span><span class="cd"><b></b><span></span></span><span class="cm"><b></b><span></span></span></div>
+      <div class="pop-test"><p class="pop-res" id="popRes">${esc(T("v_wait"))}</p><p class="pop-dist m" id="popDist">&nbsp;</p>
+        <div class="you"><span class="you-k">${esc(T("you_k"))}</span><span class="you-v" id="you"><i class="skl"></i></span><button class="mini" id="precise" type="button">${esc(T("precise"))}</button></div></div>
+    </section>
+
+    <section class="card near">
+      <h2>${esc(T("near_h", { cdn: cname(c) }))}</h2>
+      <ol class="nl">${near.map(([x, dd]) => `<li><a href="${popHref[list]}${x[0].toLowerCase()}/"><b>${esc(x[0])}</b><span>${esc(x[1])}, ${esc(country(x[2]))}</span></a><i>${esc(kmF(dd))}</i></li>`).join("")}</ol>
+    </section>${others.length ? `
+
+    <section class="card near">
+      <h2>${esc(T("cc_h", { country: country(cc) }))}</h2>
+      <ol class="nl">${others.map(([l, x]) => `<li><a href="${popHref[l]}${x[0].toLowerCase()}/"><b>${esc(cname(BY[l]))} ${esc(x[0])}</b><span>${esc(x[1])}</span></a><i>${esc(kmF(km(lat, lon, x[3], x[4])))}</i></li>`).join("")}</ol>
+    </section>` : ""}`;
+    };
+
+    // every page of this language: the test, one per CDN, one per location
+    const pages = [{ kind: "home", dir: "", title: T("seo_title"), desc: T("seo_desc"), kw: T("seo_kw"), og: T("og_sub"), main: toolMain({ h1: T("h1") }), faq: true }];
+    for (const c of CDNS) {
+      const n = c.list ? (c.id === "cfchina" ? POPS.cloudflare.filter(p => p[2] === "CN").length : POPS[c.list].length) : 0, v = { cdn: cname(c), n };
+      pages.push({ kind: "cdn", cdn: c.id, dir: c.id + "/", title: T("cdn_title", v), desc: T(n ? "cdn_desc_list" : "cdn_desc", v), kw: T("cdn_kw", v), og: T("cdn_og", v),
+        main: toolMain({ h1: T("cdn_h1", v), first: c.id }), article: cdnArticle(c) });
+    }
+    for (const list of LISTS) for (const p of POPS[list]) {
+      const v = { cdn: cname(BY[list]), city: p[1], code: p[0], country: country(p[2]), n: POPS[list].length };
+      // the China Network's locations are tested through it: from China, the global network never reaches them
+      pages.push({ kind: "pop", cdn: list === "cloudflare" && p[2] === "CN" ? "cfchina" : list, pop: { code: p[0], lat: p[3], lon: p[4] }, dir: list + "/" + p[0].toLowerCase() + "/",
+        title: T("pop_title", v), desc: T("pop_desc", v), kw: T("pop_kw", v), og: T("pop_desc", v), main: popMain(list, p) });
+    }
+
+    for (const pg of pages) {
+      const at = sl => pathOf(sl, pg.dir), url = SITE + at(slug);
+      const alts = langs.map(([l, sl]) => `<link rel="alternate" hreflang="${l}" href="${SITE + at(sl)}">`).join("\n") + `\n<link rel="alternate" hreflang="x-default" href="${SITE + at("")}">`;
+      const graph = [{ "@type": "WebApplication", name: T("app_name") + " · 1ms.dog", url, applicationCategory: "UtilitiesApplication", operatingSystem: "Any",
+        browserRequirements: "Requires JavaScript", description: pg.desc, inLanguage: lang, isAccessibleForFree: true, offers: { "@type": "Offer", price: "0", priceCurrency: "USD" } }];
+      if (pg.faq) graph.push({ "@type": "FAQPage", mainEntity: docs.map(x => ({ "@type": "Question", name: x.q, acceptedAnswer: { "@type": "Answer", text: x.t } })) });
+      if (pg.kind !== "home") graph.push({ "@type": "BreadcrumbList", itemListElement: [
+        { "@type": "ListItem", position: 1, name: T("app_name"), item: SITE + pathOf(slug) },
+        { "@type": "ListItem", position: 2, name: cname(BY[pg.cdn]), item: SITE + pathOf(slug, pg.cdn + "/") },
+        ...(pg.kind === "pop" ? [{ "@type": "ListItem", position: 3, name: pg.pop.code, item: url }] : []),
+      ] });
+      const og = `${SITE}/og/${lang.toLowerCase()}.png`;
+      const head = [
+        `<title>${esc(pg.title)}</title>`,
+        `<meta name="description" content="${esc(pg.desc)}">`,
+        `<meta name="keywords" content="${esc(pg.kw)}">`,
+        ...(lang === "zh-CN" ? [`<meta http-equiv="Cache-Control" content="no-transform">`, `<meta http-equiv="Cache-Control" content="no-siteapp">`, `<meta name="applicable-device" content="pc,mobile">`] : []),
+        `<meta name="robots" content="index, follow, max-image-preview:large">`,
+        `<meta name="application-name" content="${esc(T("app_name"))}">`,
+        `<meta name="theme-color" content="#f6f6f7" media="(prefers-color-scheme: light)">`,
+        `<meta name="theme-color" content="#1c1c1c" media="(prefers-color-scheme: dark)">`,
+        `<link rel="canonical" href="${url}">`, alts,
+        `<link rel="icon" href="/favicon.ico" sizes="any">`, `<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">`,
+        `<meta property="og:type" content="website">`, `<meta property="og:site_name" content="1ms.dog">`,
+        `<meta property="og:title" content="${esc(pg.title)}">`, `<meta property="og:description" content="${esc(pg.og)}">`, `<meta property="og:url" content="${url}">`,
+        `<meta property="og:locale" content="${locale}">`,
+        `<meta property="og:image" content="${og}">`, `<meta property="og:image:width" content="1200">`, `<meta property="og:image:height" content="630">`,
+        `<meta property="og:image:alt" content="${esc(pg.title)}">`,
+        `<meta name="twitter:card" content="summary_large_image">`, `<meta name="twitter:image" content="${og}">`,
+        `<meta name="twitter:title" content="${esc(pg.title)}">`, `<meta name="twitter:description" content="${esc(pg.og)}">`,
+        `<script type="application/ld+json">${json({ "@context": "https://schema.org", "@graph": graph })}</script>`,
+      ].join("\n");
+      const paths = Object.fromEntries(langs.map(([l, sl]) => [l, at(sl)]));
+      const data = { lang, kind: pg.kind, cdn: pg.cdn || null, pop: pg.pop || null, paths, home: pathOf(slug), popHref, files: { pops: F.pops, places: F.places } };
+      const html = tpl
+        .replace(/(<(\w+)\b[^>]*\sdata-i="(\w+)"[^>]*>)([^<]*)(<\/\2>)/g, (m, open, tag, k, inner, close) => open + esc(T(k)) + close)
+        .replace(/\{\{a:(\w+)\}\}/g, (m, k) => esc(T(k)))
+        .replace("{{lang}}", lang).replace("{{pathsAttr}}", esc(JSON.stringify(paths))).replace("{{rootAttr}}", slug ? "" : " data-root")
+        .replace("{{prepaint}}", PREPAINT).replace("{{head}}", head).replace("{{css}}", F.css).replace("{{js}}", F.js).replace("{{strings}}", sName)
+        .replace(pg.kind !== "home" ? ` aria-current="page"` : "{{none}}", "").split("{{homeHref}}").join(pathOf(slug)).replace("{{langOpts}}", langOpts)
+        .replace("{{main}}", () => pg.main).replace("{{article}}", () => pg.article || "")
+        .replace("{{helpNav}}", () => helpNav).replace("{{helpC}}", () => helpC)
+        .replace("{{data}}", () => json(data));
+      if (/\{\{[\w:]+\}\}/.test(html)) throw new Error("unfilled placeholder in " + at(slug) + ": " + /\{\{[\w:]+\}\}/.exec(html)[0]);
+      files[at(slug).slice(1) + "index.html"] = html;
+      sitemaps[lang].push(pg.dir);
+    }
+  }
+
+  // one sitemap per language (each about 500 pages, with every page's other languages), and an index of them
+  const dirs = sitemaps.en;
+  for (const [lang, slug] of langs) {
+    files[`sitemap-${lang.toLowerCase()}.xml`] = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n` +
+      dirs.map(dir => `<url><loc>${SITE + pathOf(slug, dir)}</loc>` + langs.map(([l, s2]) => `<xhtml:link rel="alternate" hreflang="${l}" href="${SITE + pathOf(s2, dir)}"/>`).join("") +
+        `<xhtml:link rel="alternate" hreflang="x-default" href="${SITE + pathOf("", dir)}"/></url>`).join("\n") + "\n</urlset>\n";
+  }
+  files["sitemap.xml"] = `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+    langs.map(([l]) => `  <sitemap><loc>${SITE}/sitemap-${l.toLowerCase()}.xml</loc><lastmod>${POPS.updated}</lastmod></sitemap>`).join("\n") + "\n</sitemapindex>\n";
+  files["robots.txt"] = `User-agent: *\nAllow: /\nDisallow: /r/\nDisallow: /*/r/\nDisallow: /geo\nDisallow: /dns\n\nSitemap: ${SITE}/sitemap.xml\n`;
+  files["llms.txt"] = `# ${en.app_name} · 1ms.dog
+
+> Free CDN location checker in the browser: for each big CDN, which of its locations (points of presence) answers the
+> visitor, how far it is from them, and the round trip, next to the least that distance allows (light in fiber,
+> about 100 km per ms of round trip). Locations are read from what each CDN writes into its answers, through public
+> files whose answers a page may read: Cloudflare's /cdn-cgi/trace (colo), CloudFront's Server-Timing cdn-pop or
+> X-Amz-Cf-Pop, Akamai-Request-BC (city), Fastly's X-Served-By, Azure Front Door's X-Azure-Ref, Bunny's Server header,
+> Wikimedia's X-Cache. Google, Alibaba Cloud, Tencent EdgeOne, Wangsu, Gcore and CDN77 don't let pages read it, so
+> they are timed only. A website check finds a site's CDN from its DNS (CNAME, Cloudflare's addresses) and its
+> location when readable. Nothing is sent to this site; the visitor's location comes from Cloudflare's IP geolocation
+> of their request (/geo), or the browser's when they ask.
+
+- Page: ${SITE}/ (also ${langs.slice(1).map(([, s]) => "/" + s + "/").join(", ")})
+- One page per CDN: ${CDNS.map(c => SITE + "/" + c.id + "/").join(", ")}
+- One page per location of Cloudflare (${POPS.cloudflare.length}, ${POPS.cloudflare.filter(p => p[2] === "CN").length} of them on the China Network), Bunny (${POPS.bunny.length}) and Wikimedia (${POPS.wikimedia.length}): ${SITE}/cloudflare/hkg/, ${SITE}/bunny/jp/, ${SITE}/wikimedia/eqsin/
+- Test files: ${CDNS.map(c => `${c.id}: ${new URL(c.url).host}`).join("; ")}
+- Source code: https://github.com/yt1988/cdn-radar
+`;
+  // The only inline script is the pre-paint snippet, identical on every page: one hash covers the site. connect-src
+  // is https: since the site check asks any site the visitor names.
+  const csp = ["default-src 'self'", `script-src 'self' 'sha256-${sha(PREPAINT)}'`, "style-src 'self' 'unsafe-inline'", "font-src 'self'", "img-src 'self' data:",
+    "connect-src 'self' https:", "manifest-src 'self'", "object-src 'none'", "base-uri 'none'", "form-action 'none'", "frame-ancestors 'none'"].join("; ");
+  files["_headers"] = `# Generated by scripts/build.mjs
+/*
+  Content-Security-Policy: ${csp}
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Cross-Origin-Opener-Policy: same-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(self), payment=(), usb=(), interest-cohort=()
+/assets/*
+  Cache-Control: public, max-age=604800
+/assets/app.*
+  ! Cache-Control
+  Cache-Control: public, max-age=31536000, immutable
+/assets/l.*
+  ! Cache-Control
+  Cache-Control: public, max-age=31536000, immutable
+/assets/pops.*
+  ! Cache-Control
+  Cache-Control: public, max-age=31536000, immutable
+/assets/places.*
+  ! Cache-Control
+  Cache-Control: public, max-age=31536000, immutable
+/assets/map.*
+  ! Cache-Control
+  Cache-Control: public, max-age=31536000, immutable
+/assets/fonts/*
+  ! Cache-Control
+  Cache-Control: public, max-age=31536000, immutable
+/og/*
+  Cache-Control: public, max-age=604800
+/llms.txt
+  Access-Control-Allow-Origin: *
+  Content-Type: text/plain; charset=utf-8
+`;
+
+  await rm(pub, { recursive: true, force: true });
+  await cp(new URL("static/", root), pub, { recursive: true });
+  for (const [f, body] of Object.entries(files)) {
+    const to = new URL(f, pub);
+    await mkdir(new URL(".", to), { recursive: true });
+    await writeFile(to, body);
+  }
+  return Object.keys(files).length;
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  const t0 = Date.now(), n = await build();
+  console.log(`wrote ${n} files to public/ in ${((Date.now() - t0) / 1000).toFixed(1)} s`);
+}
