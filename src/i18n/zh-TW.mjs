@@ -9,7 +9,7 @@ export default {
 
   lang_label: "語言", faq_h: "說明", a_logo: "1ms.dog", a_theme: "主題", a_close: "關閉", a_prev: "上一則", a_next: "下一則",
   th_system: "主題：跟隨系統", th_light: "主題：淺色", th_dark: "主題：深色",
-  rerun: "重新測試", share: "分享", copied: "已複製", test_mine: "測我的網路",
+  rerun: "重新測試", share: "分享", copied: "已複製",
   progress: "{n} / {of}", done: "耗時 {s} 秒",
 
   you_k: "你", you_unknown: "不知道你在哪，無法計算距離", you_hidden: "對方沒有分享位置",
@@ -84,7 +84,6 @@ export default {
 
   egress_link: "每個網站看到的是哪個 IP？", cost_link: "比較 CDN 價格", speed_link: "測一下網速", home_link: "到 40 個服務的延遲",
 
-  shared_on: "別人分享的結果 {where}· {date}", shared_where: "來自{where} ",
   share_text: "我最快的 CDN 是 {cdn}，{ms}。你被分到哪些節點？",
   share_title: "{summary} · CDN 雷達",
   share_desc: "每家大型 CDN 回應的節點和往返時間。幾秒鐘測測你的網路。",

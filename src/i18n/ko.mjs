@@ -9,7 +9,7 @@ export default {
 
   lang_label: "언어", faq_h: "도움말", a_logo: "1ms.dog", a_theme: "테마", a_close: "닫기", a_prev: "이전", a_next: "다음",
   th_system: "테마: 시스템", th_light: "테마: 라이트", th_dark: "테마: 다크",
-  rerun: "다시 측정", share: "공유", copied: "복사됨", test_mine: "내 네트워크 측정",
+  rerun: "다시 측정", share: "공유", copied: "복사됨",
   progress: "{n} / {of}", done: "{s}초 만에 완료",
 
   you_k: "나", you_unknown: "위치를 알 수 없어 거리를 계산할 수 없음", you_hidden: "위치가 공유되지 않음",
@@ -84,7 +84,6 @@ export default {
 
   egress_link: "사이트마다 보이는 IP는?", cost_link: "CDN 요금 비교", speed_link: "인터넷 속도 측정", home_link: "서비스 40곳까지의 지연 시간",
 
-  shared_on: "공유된 결과 {where}· {date}", shared_where: "{where}에서 ",
   share_text: "가장 빠른 CDN: {cdn}, {ms}. 당신은 어느 지점에 연결되나요?",
   share_title: "{summary} · CDN 레이더",
   share_desc: "대형 CDN별 응답 지점과 왕복 시간. 몇 초 만에 내 네트워크도 측정해 보세요.",

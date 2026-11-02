@@ -9,7 +9,7 @@ export default {
 
   lang_label: "言語", faq_h: "ヘルプ", a_logo: "1ms.dog", a_theme: "テーマ", a_close: "閉じる", a_prev: "前へ", a_next: "次へ",
   th_system: "テーマ：システム設定", th_light: "テーマ：ライト", th_dark: "テーマ：ダーク",
-  rerun: "もう一度測定", share: "共有", copied: "コピーしました", test_mine: "自分の回線を測る",
+  rerun: "もう一度測定", share: "共有", copied: "コピーしました",
   progress: "{n} / {of}", done: "{s} 秒で完了",
 
   you_k: "あなた", you_unknown: "現在地が不明なため距離は出せません", you_hidden: "位置は共有されていません",
@@ -84,7 +84,6 @@ export default {
 
   egress_link: "各サイトにはどの IP が見えている？", cost_link: "CDN の料金を比べる", speed_link: "回線速度を測る", home_link: "40 サービスへの遅延",
 
-  shared_on: "共有された結果 {where}· {date}", shared_where: "{where}から ",
   share_text: "いちばん速い CDN は {cdn}、{ms}。あなたはどの拠点につながる？",
   share_title: "{summary} · CDN レーダー",
   share_desc: "大手 CDN ごとの応答拠点と往復時間。数秒で自分の回線も測れます。",

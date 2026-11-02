@@ -78,7 +78,9 @@ test("the sitemaps list every page in every language", async () => {
 test("the share dialog is the shell's, unchanged, and loaded only on demand", async () => {
   const js = await readdir(new URL("../public/assets/", import.meta.url));
   const app = await readFile(new URL("../public/assets/" + js.find(f => /^app\..+\.js$/.test(f)), import.meta.url), "utf8");
-  assert.ok(app.includes('import("/assets/share/share.js")'));
+  // with its version: /assets/ is cached for a week, and an older copy has no received()
+  assert.match(app, /"\/assets\/share\/share\.js\?v=\d+"/);
+  assert.match(app, /import\(\w+\)/);
   assert.ok(!/id="shareDlg"/.test(await page("")));
 });
 

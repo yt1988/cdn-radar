@@ -9,7 +9,7 @@ export default {
 
   lang_label: "Idioma", faq_h: "Ajuda", a_logo: "1ms.dog", a_theme: "Tema", a_close: "Fechar", a_prev: "Anterior", a_next: "Próximo",
   th_system: "Tema: sistema", th_light: "Tema: claro", th_dark: "Tema: escuro",
-  rerun: "Testar de novo", share: "Compartilhar", copied: "Copiado", test_mine: "Testar minha rede",
+  rerun: "Testar de novo", share: "Compartilhar", copied: "Copiado",
   progress: "{n} / {of}", done: "Concluído em {s} s",
 
   you_k: "Você", you_unknown: "Localização desconhecida: sem distâncias", you_hidden: "Localização não compartilhada",
@@ -84,7 +84,6 @@ export default {
 
   egress_link: "Que IP cada site vê?", cost_link: "Comparar preços de CDN", speed_link: "Testar sua velocidade", home_link: "Latência para 40 serviços",
 
-  shared_on: "Resultado compartilhado {where}· {date}", shared_where: "de {where} ",
   share_text: "Minha CDN mais rápida: {cdn}, {ms}. De onde as CDNs atendem você?",
   share_title: "{summary} · Radar CDN",
   share_desc: "Qual local de cada grande CDN respondeu, e a ida e volta. Teste sua rede em segundos.",

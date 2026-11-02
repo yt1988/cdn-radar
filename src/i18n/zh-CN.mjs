@@ -9,7 +9,7 @@ export default {
 
   lang_label: "语言", faq_h: "帮助", a_logo: "1ms.dog", a_theme: "主题", a_close: "关闭", a_prev: "上一条", a_next: "下一条",
   th_system: "主题：跟随系统", th_light: "主题：浅色", th_dark: "主题：深色",
-  rerun: "重新测试", share: "分享", copied: "已复制", test_mine: "测我的网络",
+  rerun: "重新测试", share: "分享", copied: "已复制",
   progress: "{n} / {of}", done: "用时 {s} 秒",
 
   you_k: "你", you_unknown: "不知道你在哪，算不出距离", you_hidden: "对方没有分享位置",
@@ -84,7 +84,6 @@ export default {
 
   egress_link: "每个网站看到的是哪个 IP？", cost_link: "比较 CDN 价格", speed_link: "测一下网速", home_link: "到 40 个服务的延迟",
 
-  shared_on: "别人分享的结果 {where}· {date}", shared_where: "来自{where} ",
   share_text: "我最快的 CDN 是 {cdn}，{ms}。你被分到了哪些节点？",
   share_title: "{summary} · CDN 雷达",
   share_desc: "每家大 CDN 应答的节点和往返时间。几秒钟测测你的网络。",

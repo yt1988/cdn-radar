@@ -331,9 +331,10 @@ import { probe, dns, once, readPop } from "./probe.mjs";
   const redraw = () => { LIST.forEach(c => fillRow(c.id)); hero(done === total); fillYou(); if (D.kind === "pop") fillPop(); };
 
   /* ---------- the test ---------- */
-  let RUN = null, LAST = null;
+  let RUN = null, LAST = null, BANNER = null;
   async function start() {
-    if (!$("#shared").hidden) { $("#shared").hidden = true; history.replaceState(null, "", D.paths[D.lang] === D.home ? location.pathname.replace(/\/r\/.*$/, "/") : location.pathname); }
+    // from a shared result to the visitor's own test: the page's own address again (the banner stays, its button goes)
+    if (BANNER && /\/r\//.test(location.pathname)) history.replaceState(null, "", location.pathname.replace(/\/r\/.*$/, "/"));
     if (RUN) RUN.abort();
     const ctl = RUN = new AbortController();
     R = {}; SHOWN = null; LAST = null; done = 0; t0 = performance.now();
@@ -467,6 +468,10 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     };
   }
 
+  // The share component, with its version: /assets/ is cached for a week, and a page must not get last version's
+  // copy (no received() before version 2, a stale cache fixed in 3)
+  const SHARE_JS = "/assets/share/share.js?v=3";
+
   /* ---------- a shared result ---------- */
   // Opening /r/<code> shows that result as the test drew it, and doesn't test until the visitor asks
   async function showShared(S) {
@@ -476,10 +481,9 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     done = total;
     if (S.site) { SITE = S.site; if ($("#siteIn")) $("#siteIn").value = S.site.host; }
     redraw(); fillSite();
-    $("#sharedTxt").textContent = t("shared_on", { where: S.where && S.where.cc ? t("shared_where", { where: [S.where.city, country(S.where.cc)].filter(Boolean).join(", ") }) : "",
-      date: new Date(S.ts).toLocaleString(D.lang, { dateStyle: "medium", timeStyle: "short" }) });
-    if (S.isp) $("#sharedTxt").textContent += " · " + S.isp;
-    $("#shared").hidden = false;
+    // the 1ms.dog banner for someone else's result, above it, with a button for the visitor's own test
+    const { received } = await import(SHARE_JS);
+    if (typeof received === "function") BANNER = received({ lang: D.lang, ts: S.ts, at: $(".hero"), test: start });
     $("#prog").classList.add("end"); $("#progTxt").innerHTML = "&nbsp;";
     $("#rerun").disabled = false;
     LAST = { ts: S.ts, shared: S }; $("#shareBtn").disabled = false;
@@ -494,22 +498,23 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     const site = S ? S.site : SITE ? { cdn: SITE.cdn, code: SITE.code, ms: SITE.ms, host: SITE.host } : null;
     const isp = S ? S.isp : U && U.org || "";
     const where = m && m.cc ? { cc: m.cc, lat: m.lat, lon: m.lon, city: m.city || "" } : null;
-    const { share } = await import("/assets/share/share.js");
+    const { share } = await import(SHARE_JS);
     share({
       lang: D.lang, name: t("app_name"), file: "cdn-radar",
       show: ["city", "isp"], never: ["ip"], canShow: !!where,
       link: show => location.origin + D.home + "r/" + encodeShare({ ts: LAST.ts, where: show ? where : null, isp: show ? isp : "", rows, site }),
       home: location.origin + D.home,
       text: () => { const b = rows.filter(x => x.ms != null).sort((a, b) => a.ms - b.ms)[0]; return b ? t("share_text", { cdn: cdnName(b.id), ms: msTxt(b.ms) }) : t("app_name"); },
-      height: 330 + Math.ceil(rows.length / 2) * 56 + (site ? 110 : 0),
+      height: 330 + 170 + Math.ceil(Math.max(0, rows.length - 3) / 2) * 52 + (site ? 110 : 0),
       draw: (x, kit) => drawCard(x, kit, rows, site),
       foot: show => [t("card_sub"), show && where && [where.city, country(where.cc)].filter(Boolean).join(", "), show && isp].filter(Boolean),
       ts: LAST.ts,
     }).open();
   };
 
-  // The middle of the card: the verdict, and every CDN with the location that answered and its round trip; never an
-  // address, and distances only when the visitor shows their city (they would place it otherwise)
+  // The middle of the card: the verdict; the three fastest CDNs large, with the location that answered and the round
+  // trip (they must read when the card is shrunk to a chat app's preview); the others under them, fastest first. Never
+  // an address, and distances only when the visitor shows their city (they would place it otherwise)
   function drawCard(x, kit, rows, site) {
     const { W, P, F, M, v, clip } = kit;
     const C = { fg: v("fg"), muted: v("muted"), line: v("line"), warn: v("warn"), bad: v("bad"), t1: v("t1") };
@@ -519,22 +524,32 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     y += 46;
     x.fillStyle = C.muted; x.font = `500 22px ${F}`; x.fillText(clip(x, SUB, W - 2 * P), P, y);
     y += 50;
+    const where = r => { const place = r.code ? placeOf(r.id, r.code, DATA.pops || {}, DATA.places) : null, c = popCode(r.id, r.code);
+      return r.code ? [c, place && place[0]].filter(Boolean).filter((s, j, l) => l.indexOf(s) === j).join(" ") : "—"; };
+    const name = r => BY[r.id].short || cdnName(r.id);
+    const order = [...rows.filter(r => r.ms != null).sort((p, q) => p.ms - q.ms), ...rows.filter(r => r.ms == null)];
+    const top = order.slice(0, 3), rest = order.slice(3);
+    // the fastest three: a column each, the round trip big
+    const tw = (W - 2 * P - 2 * 28) / 3;
+    top.forEach((r, i) => {
+      const cx = P + i * (tw + 28);
+      x.fillStyle = BY[r.id].c; x.beginPath(); x.arc(cx + 9, y + 2, 9, 0, Math.PI * 2); x.fill();
+      x.fillStyle = C.fg; x.font = `700 28px ${F}`; x.fillText(clip(x, name(r), tw - 30), cx + 28, y + 12);
+      x.fillStyle = C.muted; x.font = `500 24px ${F}`; x.fillText(clip(x, where(r), tw), cx, y + 52);
+      x.fillStyle = r.ms == null ? C.bad : C.fg; x.font = `750 52px ${M}`; x.fillText(r.ms == null ? "—" : msTxt(r.ms), cx, y + 118);
+    });
+    y += 170;
     const colW = (W - 2 * P - 40) / 2;
-    rows.forEach((r, i) => {
-      const cx = P + (i % 2) * (colW + 40), cy = y + Math.floor(i / 2) * 56;
-      const place = r.code ? placeOf(r.id, r.code, DATA.pops || {}, DATA.places) : null;
+    rest.forEach((r, i) => {
+      const cx = P + (i % 2) * (colW + 40), cy = y + Math.floor(i / 2) * 52;
       x.fillStyle = BY[r.id].c; x.beginPath(); x.arc(cx + 7, cy - 8, 7, 0, Math.PI * 2); x.fill();
-      x.fillStyle = C.fg; x.font = `650 23px ${F}`;
-      const name = BY[r.id].short || cdnName(r.id);
-      x.fillText(clip(x, name, colW * .42), cx + 24, cy);
-      x.fillStyle = C.muted; x.font = `500 21px ${F}`;
-      const where = r.code ? [popCode(r.id, r.code), place && (popCode(r.id, r.code) ? place[0] : place[0])].filter(Boolean).filter((s, j, a) => a.indexOf(s) === j).join(" ") : "—";
-      x.fillText(clip(x, where, colW * .38), cx + 24 + colW * .42, cy);
+      x.fillStyle = C.fg; x.font = `650 23px ${F}`; x.fillText(clip(x, name(r), colW * .42), cx + 24, cy);
+      x.fillStyle = C.muted; x.font = `500 21px ${F}`; x.fillText(clip(x, where(r), colW * .38), cx + 24 + colW * .42, cy);
       x.textAlign = "right"; x.fillStyle = r.ms == null ? C.bad : C.fg; x.font = `650 22px ${M}`;
       x.fillText(r.ms == null ? "—" : msTxt(r.ms), cx + colW, cy); x.textAlign = "left";
     });
     if (site) {
-      const sy = y + Math.ceil(rows.length / 2) * 56 + 16;
+      const sy = y + Math.ceil(rest.length / 2) * 52 + 16;
       x.strokeStyle = C.line; x.lineWidth = 2; x.beginPath(); x.moveTo(P, sy - 34); x.lineTo(W - P, sy - 34); x.stroke();
       x.fillStyle = C.fg; x.font = `650 23px ${F}`; x.fillText(clip(x, site.host, W * .4), P, sy);
       x.fillStyle = C.muted; x.font = `500 21px ${F}`;
@@ -544,7 +559,6 @@ import { probe, dns, once, readPop } from "./probe.mjs";
   }
 
   if ($("#rerun")) $("#rerun").onclick = start;
-  $("#testMine").onclick = start;
   const SP = sharePath(location.pathname), SHARED = SP && decodeShare(SP.code);
   geoP.then(fillYou);
   if (SHARED && D.kind !== "pop") showShared(SHARED);

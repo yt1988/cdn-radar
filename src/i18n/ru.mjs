@@ -9,7 +9,7 @@ export default {
 
   lang_label: "Язык", faq_h: "Справка", a_logo: "1ms.dog", a_theme: "Тема", a_close: "Закрыть", a_prev: "Назад", a_next: "Далее",
   th_system: "Тема: как в системе", th_light: "Тема: светлая", th_dark: "Тема: тёмная",
-  rerun: "Повторить", share: "Поделиться", copied: "Скопировано", test_mine: "Проверить мою сеть",
+  rerun: "Повторить", share: "Поделиться", copied: "Скопировано",
   progress: "{n} / {of}", done: "Готово за {s} с",
 
   you_k: "Вы", you_unknown: "Местоположение неизвестно: без расстояний", you_hidden: "Местоположение скрыто",
@@ -84,7 +84,6 @@ export default {
 
   egress_link: "Какой IP видит каждый сайт?", cost_link: "Сравнить цены CDN", speed_link: "Проверить скорость", home_link: "Задержка до 40 сервисов",
 
-  shared_on: "Чужой результат {where}· {date}", shared_where: "{where} ",
   share_text: "Мой самый быстрый CDN: {cdn}, {ms}. А откуда обслуживают вас?",
   share_title: "{summary} · CDN-радар",
   share_desc: "Какая точка каждого крупного CDN ответила и время туда и обратно. Проверьте свою сеть за секунды.",

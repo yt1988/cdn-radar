@@ -9,7 +9,7 @@ export default {
 
   lang_label: "Sprache", faq_h: "Hilfe", a_logo: "1ms.dog", a_theme: "Design", a_close: "Schließen", a_prev: "Zurück", a_next: "Weiter",
   th_system: "Design: System", th_light: "Design: hell", th_dark: "Design: dunkel",
-  rerun: "Erneut testen", share: "Teilen", copied: "Kopiert", test_mine: "Mein Netz testen",
+  rerun: "Erneut testen", share: "Teilen", copied: "Kopiert",
   progress: "{n} / {of}", done: "Fertig in {s} s",
 
   you_k: "Du", you_unknown: "Standort unbekannt: keine Entfernungen", you_hidden: "Standort nicht geteilt",
@@ -84,7 +84,6 @@ export default {
 
   egress_link: "Welche IP sieht jede Website?", cost_link: "CDN-Preise vergleichen", speed_link: "Geschwindigkeit testen", home_link: "Latenz zu 40 Diensten",
 
-  shared_on: "Geteiltes Ergebnis {where}· {date}", shared_where: "aus {where} ",
   share_text: "Mein schnellstes CDN: {cdn}, {ms}. Von wo wirst du bedient?",
   share_title: "{summary} · CDN-Radar",
   share_desc: "Welcher Standort jedes großen CDN geantwortet hat, und der Round Trip. Teste dein Netz in Sekunden.",

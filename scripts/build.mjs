@@ -132,7 +132,7 @@ export async function build() {
       const tiles = order.filter(c => !c.read).map(c => "        " + tileHTML(c, c.id === first)).join("\n");
       return `    <section class="hero card${first ? " one" : ""}">
       <h1>${esc(h1)}</h1>${intro ? `\n      <p class="intro">${esc(intro)}</p>` : ""}
-      <div class="verd"><p class="verdict" id="verdict">${esc(T("v_wait"))}</p>
+      <div class="verd"><div class="vline"><p class="verdict" id="verdict">${esc(T("v_wait"))}</p><button class="btn sm" id="shareBtn" type="button" aria-haspopup="dialog" disabled><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 10V2M5 5l3-3 3 3M3 9v4.5h10V9"/></svg><span>${esc(T("share"))}</span></button></div>
       <p class="ctl"><span>${esc(T("cond_note"))}</span><button class="lnk" id="rulesBtn" type="button" aria-haspopup="dialog" aria-controls="rules">${esc(T("cond_ctl"))}</button></p></div>
       <div class="stats">
         ${first ? stat("stPop", T("c_pop")) + stat("stDist", T("c_dist")) + stat("stMs", T("c_ms"))
@@ -143,7 +143,6 @@ export async function build() {
       <div class="bar">
         <div class="prog" id="prog"><i></i></div>
         <span class="prog-t" id="progTxt">&nbsp;</span>
-        <button class="btn sm" id="shareBtn" type="button" aria-haspopup="dialog" disabled><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 10V2M5 5l3-3 3 3M3 9v4.5h10V9"/></svg><span>${esc(T("share"))}</span></button>
         <button class="btn pri" id="rerun" type="button" disabled><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2v3h-3"/></svg><span>${esc(T("rerun"))}</span></button>
       </div>
     </section>
@@ -371,6 +370,9 @@ ${tiles}
 /assets/fonts/*
   ! Cache-Control
   Cache-Control: public, max-age=31536000, immutable
+/assets/share/*
+  ! Cache-Control
+  Cache-Control: public, max-age=0, must-revalidate
 /og/*
   Cache-Control: public, max-age=604800
 /llms.txt
