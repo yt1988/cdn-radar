@@ -142,6 +142,8 @@ test("routes: which exit each CDN's request took, and how that was told", () => 
     { id: "cloudfront", place: place("cloudfront", "NRT"), ms: 63 },
     { id: "akamai", place: place("akamai", "GB-LONDON"), ms: 173 },
     { id: "wangsu", ms: 10 },
+    // fast, but a proxy the probes didn't see (Hong Kong, for one rule) could carry it: not called direct
+    { id: "cdn77", ms: 56 },
     { id: "alibaba", ms: 68 },
     { id: "gcore", ms: 88 },
   ];
@@ -153,6 +155,7 @@ test("routes: which exit each CDN's request took, and how that was told", () => 
   assert.deepEqual(R.akamai, { x: null });
   // 10 ms: shorter than the way to Tokyo allows
   assert.deepEqual(R.wangsu, { x: "D", how: "ms" });
+  assert.deepEqual(R.cdn77, { x: null });
   assert.deepEqual(R.alibaba, { x: "D", how: "rule" });
   assert.deepEqual(R.gcore, { x: null });
   // one exit: everything took it

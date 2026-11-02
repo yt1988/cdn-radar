@@ -102,7 +102,7 @@ export const exitOfIp = (exits, ip) => ip ? exits.find(e => e.ips.includes(ip)) 
 //   ip    the CDN's own answer names the address
 //   pop   its location is far nearer one exit than any other (a CDN places a request by the address it comes from):
 //         at most half the distance, and 1000 km nearer
-//   ms    the round trip is shorter than any proxy allows (light in fiber to the proxy, or 60% of the fastest answer
+//   ms    the round trip is under FAST and shorter than any proxy found allows (light in fiber to it, or 60% of the fastest answer
 //         through it from a location near it): direct
 //   rule  inferred: its domain is on the mainland list that proxy rules send direct (cdns.mjs, cn), and the mainland
 //         probe went direct
@@ -132,7 +132,8 @@ export function routes(rows, exits, cnVia) {
   for (const r of rows) {
     if (out[r.id].x || r.ms == null) continue;
     const least = p => Math.max(D0.lat != null && p.lat != null ? floorMs(km(D0.lat, D0.lon, p.lat, p.lon)) : 0, hop[p.letter] != null ? hop[p.letter] * .6 : 0);
-    if (D0 && Ps.length && Ps.every(p => r.ms < least(p))) out[r.id] = { x: D0.letter, how: "ms" };
+    // and under FAST: a proxy the probes never saw (one rule's proxy among several) can be nearer than the ones found
+    if (D0 && Ps.length && r.ms < FAST && Ps.every(p => r.ms < least(p))) out[r.id] = { x: D0.letter, how: "ms" };
     else if (BY[r.id] && BY[r.id].cn && cnE && cnE.kind === "D" && Ps.length) out[r.id] = { x: cnE.letter, how: "rule" };
   }
   return out;
