@@ -44,8 +44,9 @@ export function readPop(read, x) {
 const median = a => { const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
-// A CDN: { ms, code, loc, ip } (ms null when it never answered; code null when it didn't say; loc and ip: the country
-// and address a trace saw the request come from, which tell the exit it took) and err ("timeout", "fail")
+// A CDN: { ms, code, loc, ip, url } (ms null when it never answered; code null when it didn't say; loc and ip: the
+// country and address a trace saw the request come from, which tell the exit it took; url: the file that answered,
+// an alt one when the first didn't) and err ("timeout", "fail")
 export async function probe(cdn, signal) {
   const cors = !!cdn.read && !cdn.read.startsWith("st:");
   let code = null, warm = null, err = null;
@@ -77,7 +78,7 @@ export async function probe(cdn, signal) {
       if (!code) code = readPop(cdn.read, x);
     } catch (e) { if (signal && signal.aborted) throw e; }
   }
-  return { ms: ts.length ? median(ts) : warm.ms, code, loc, ip, err: null };
+  return { ms: ts.length ? median(ts) : warm.ms, code, loc, ip, url: cdn.url, err: null };
 }
 
 // Names and addresses a site's DNS gives, not the local resolver's (or a proxy's fake addresses). This site's Worker

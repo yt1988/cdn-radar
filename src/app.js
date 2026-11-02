@@ -461,8 +461,11 @@ import { probe, dns, once, readPop } from "./probe.mjs";
         try { x = await probe(c, ctl.signal); } catch (e) { return; }
         if (ctl.signal.aborted) return;
         R[c.id] = x; done++;
-        // a trace names the address the request came from, and the Cloudflare location it reached
-        if (x.ip) addExit(x.ip, c.id, c.id === "cfchina" ? { coloCn: x.code } : { colo: x.code });
+        // a trace names the address the request came from, and the Cloudflare location it reached. This site's own
+        // trace (Cloudflare's last fallback) took this site's route, not the CDN's: it tells nothing about the row.
+        const own = !!x.url && x.url.startsWith("/");
+        if (x.ip) addExit(x.ip, own ? "self" : c.id, c.id === "cfchina" ? { coloCn: x.code } : { colo: x.code });
+        if (own) x.ip = null;
         progress(); redraw();
       }
     };
