@@ -238,18 +238,26 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     // sentences in Chinese and Japanese follow each other without a space
     return head + (missedNearest(r.d, r.near) ? (/[。！？]$/.test(head) ? "" : " ") + t("f_far_near", { near: [popCode(r.id, r.near[0]), placeTxt(r.near[1])].filter(Boolean).join(" · "), km: kmTxt(r.near[2]) }) : "");
   }
+  const FINDS0 = $("#finds") ? $("#finds").innerHTML : "";   // the findings' placeholders, as the page came
   function hero(final) {
     const rows = LIST.map(c => rowOf(c.id)).filter(Boolean);
     drawMap(rows, me());
     const v = $("#verdict");
     if (D.kind === "pop" || !v) return;
     if (D.kind === "cdn") return heroCdn(rowOf(D.cdn), final);
-    if (!final) { v.textContent = t("v_wait"); v.className = "verdict"; return; }
-    const s = summary(LIST.map(c => rowOf(c.id) || { id: c.id, ms: null }));
+    // While testing, the numbers and findings of the CDNs that have answered fill in as they come; the verdict waits for
+    // all of them. Nothing in yet (a new run): the placeholders again.
+    if (!final && !rows.length) {
+      v.textContent = t("v_wait"); v.className = "verdict";
+      for (const k of ["stNear", "stMed", "stFar"]) { $("#" + k).textContent = "–"; $("#" + k).className = ""; }
+      $("#stMedS").textContent = " "; $("#stFarS").textContent = " "; $("#finds").innerHTML = FINDS0;
+      return;
+    }
+    const s = summary(final ? LIST.map(c => rowOf(c.id) || { id: c.id, ms: null }) : rows);
     // a shared result without its place: no distances, by the sharer's choice
     if (SHOWN && !me() && s.key === "v_noloc") s.key = "v_hidden";
-    v.textContent = t(s.key);
-    v.className = "verdict " + ({ v_good: "t1", v_mixed: "warn", v_far: "bad", v_none: "bad" }[s.key] || "");
+    v.textContent = final ? t(s.key) : t("v_wait");
+    v.className = "verdict " + (final ? { v_good: "t1", v_mixed: "warn", v_far: "bad", v_none: "bad" }[s.key] || "" : "");
     SUB = s.located ? t("v_sub", { n: s.located, near: s.near, far: s.far }) : "";
     $("#stNear").textContent = s.located ? `${s.near} / ${s.located}` : "–";
     $("#stNear").className = s.located ? (s.near * 4 >= s.located * 3 ? "t1" : s.near * 3 <= s.located ? "t5" : "t3") : "";
@@ -261,6 +269,8 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     $("#stFar").textContent = f ? kmTxt(f.d) : "–";
     $("#stFar").className = f ? tierOf(f.d)[1] : "";
     $("#stFarS").textContent = f ? `${cdnName(f.id)} · ${f.place[0]}` : " ";
+    // "nothing stands out" only once everything is in
+    if (!final && !s.findings.length) { $("#finds").innerHTML = FINDS0; return; }
     const items = s.findings.length ? s.findings : [{ kind: "ok", key: "f_none" }];
     $("#finds").innerHTML = items.map(x => `<li class="${x.kind}"><svg viewBox="0 0 16 16" aria-hidden="true">${ICON[x.kind]}</svg><span>${esc(x.key === "f_none" ? t("f_none") : finding(x))}</span></li>`).join("");
   }
