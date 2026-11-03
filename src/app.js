@@ -125,7 +125,9 @@ import { probe, dns, once, readPop } from "./probe.mjs";
   const msTxt = ms => t("r_ms", { ms: fmtMs(ms) });
   const kmTxt = d => t("r_km", { km: nf.format(d < 10 ? Math.round(d * 10) / 10 : Math.round(d)) });
   const regionNames = (() => { try { return new Intl.DisplayNames([D.lang], { type: "region" }); } catch (e) { return null; } })();
-  const country = cc => { try { return regionNames ? regionNames.of(cc) : cc; } catch (e) { return cc; } };
+  // Taiwan is "中国台湾 / Taiwan, China" (1ms-shell docs/tool-contract.md §5); every other region by its system name
+  const TW = { "zh-CN": "中国台湾", "zh-TW": "中國台灣", en: "Taiwan, China", ja: "中国台湾", ko: "중국 대만", es: "Taiwán, China", fr: "Taïwan, Chine", de: "Taiwan, China", pt: "Taiwan, China", ru: "Тайвань, Китай" };
+  const country = cc => { if (cc === "TW") return TW[D.lang]; try { return regionNames ? regionNames.of(cc) : cc; } catch (e) { return cc; } };
   const cdnName = id => BY[id] ? nameOf(BY[id], D.lang) : id;
   // a location for people: "HKG · Hong Kong, 香港" → code and where; Akamai names cities, not codes
   const popCode = (id, code) => id === "akamai" || id === "cdn77" ? "" : code;

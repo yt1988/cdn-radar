@@ -23,6 +23,7 @@ import { feature } from "topojson-client";
 import { geoEquirectangular, geoPath } from "d3-geo";
 import { CDNS, BY, HOSTS, nameOf } from "../src/cdns.mjs";
 import { km } from "../src/lib.mjs";
+const TW = { "zh-CN": "中国台湾", "zh-TW": "中國台灣", en: "Taiwan, China", ja: "中国台湾", ko: "중국 대만", es: "Taiwán, China", fr: "Taïwan, Chine", de: "Taiwan, China", pt: "Taiwan, China", ru: "Тайвань, Китай" };
 
 const SITE = (process.env.SITE_URL || "https://cdn.1ms.dog").replace(/\/+$/, "");
 const root = new URL("../", import.meta.url), pub = new URL("public/", root), src = new URL("src/", root);
@@ -107,7 +108,8 @@ export async function build() {
     const strings = Object.fromEntries(Object.keys(en).filter(k => !BUILD_ONLY.has(k)).map(k => [k, T(k)]));
     const sjs = `window.L1MS=${json(strings)};\n`, sName = `l.${lang.toLowerCase()}.${hash(sjs)}.js`;
     files["assets/" + sName] = sjs;
-    const regions = new Intl.DisplayNames([lang], { type: "region" }), country = cc => { try { return regions.of(cc); } catch (e) { return cc; } };
+    // Taiwan is "中国台湾 / Taiwan, China" (1ms-shell docs/tool-contract.md §5); every other region by its system name
+    const regions = new Intl.DisplayNames([lang], { type: "region" }), country = cc => { if (cc === "TW") return TW[lang]; try { return regions.of(cc); } catch (e) { return cc; } };
     const cname = c => nameOf(c, lang);
     const docs = T("docs").map(([q, a]) => ({ q, h: a.split(/\n+/).map(p => `<p>${esc(p)}</p>`).join(""), t: a.replace(/\n+/g, " ") }));
     const helpNav = docs.map((x, i) => `<button type="button" role="tab" data-hq="${i}" aria-selected="${i === 0}">${esc(x.q)}</button>`).join("");
