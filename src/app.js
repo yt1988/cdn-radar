@@ -524,7 +524,7 @@ import { probe, dns, once, readPop } from "./probe.mjs";
       link: show => location.origin + D.home + "r/" + encodeShare({ ts: LAST.ts, where: show ? where : null, isp: show ? isp : "", rows, site }),
       home: location.origin + D.home,
       text: () => { const b = rows.filter(x => x.ms != null).sort((a, b) => a.ms - b.ms)[0]; return b ? t("share_text", { cdn: cdnName(b.id), ms: msTxt(b.ms) }) : t("app_name"); },
-      height: 330 + 170 + Math.ceil(Math.max(0, rows.length - 3) / 2) * 52 + (site ? 110 : 0),
+      height: 370 + 170 + Math.ceil(Math.max(0, rows.length - 3) / 2) * 52 + (site ? 110 : 0),
       draw: (x, kit) => drawCard(x, kit, rows, site),
       foot: show => [t("card_sub"), show && where && [where.city, country(where.cc)].filter(Boolean).join(", "), show && isp].filter(Boolean),
       ts: LAST.ts,
