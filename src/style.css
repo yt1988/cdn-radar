@@ -263,4 +263,7 @@ details.rblk summary:hover { color: var(--fg); }
 @media (pointer: coarse) {
   .cn a, .tt a, .lnk, .links a, .others a, .cp b a, .nl a, .crumbs a, a.q0 { min-height: 32px; display: inline-flex; align-items: center; }
   .tt a { display: flex; }
+  .cp b a { min-width: 32px; }
 }
+/* the narrowest phones: timed-only tiles two to a row, so a long name (Wangsu (CDNetworks)) fits */
+@media (max-width: 420px) { .tts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
