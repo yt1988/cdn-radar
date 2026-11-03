@@ -2,12 +2,15 @@
 //   /dns?name=<host>      the site check's DNS, asked from the edge (Cloudflare's resolver): { cnames, ips }
 //   /geo                  where Cloudflare places the visitor (its IP geolocation of this request): the page's
 //                         distances start there. Never stored or logged; not cached.
+//   /places?q=<cdn>:<code>,…  where the codes a CDN's answers gave are (IATA codes, Akamai's cities): { "<cdn>:<code>":
+//                         [city, cc, lat, lon] } for the ones known (data/places.json, which the page doesn't load)
 //   /r/<code>, /<lang>/r/<code>   a shared result: that language's page with the locations in its title (what chat
 //                         apps show as the link's preview), not indexed; the page itself reads the code and shows the
 //                         result (src/lib.mjs); a code it can't read is a 404
 //   anything else         a bare 404; 1ms-shell puts the shared 1ms.dog 404 page in front of it
 
-import { BY, nameOf } from "./cdns.mjs";
+import { BY, nameOf, placeOf } from "./cdns.mjs";
+import PLACES from "../data/places.json" with { type: "json" };
 import { decode, sharePath } from "./lib.mjs";
 import en from "./i18n/en.mjs";
 import zhCN from "./i18n/zh-CN.mjs";
@@ -30,6 +33,7 @@ export default {
     if (req.method !== "GET" && req.method !== "HEAD") return new Response("Method not allowed\n", { status: 405 });
     if (url.pathname === "/geo") return geo(req);
     if (url.pathname === "/dns") return dns(url);
+    if (url.pathname === "/places") return places(url);
     const sp = sharePath(url.pathname);
     if (sp && sp.slug in STR && env.ASSETS) return shared(req, env, url, sp);
     return notFound(req);
@@ -47,6 +51,19 @@ function geo(req) {
     asn: cf.asn || null, org: cf.asOrganization || null, colo: cf.colo || null };
   return new Response(JSON.stringify(body), { headers: { "content-type": "application/json; charset=utf-8", "cache-control": "private, no-store",
     "x-robots-tag": "noindex" } });
+}
+
+// Where codes are, for the page: at most 40 at a time; the CDNs that publish their lists the page has already.
+function places(url) {
+  const out = {};
+  for (const k of (url.searchParams.get("q") || "").split(",").slice(0, 40)) {
+    const [id, code] = k.split(":");
+    if (!BY[id] || !/^[A-Z0-9-]{1,40}$/.test(code || "")) continue;
+    const p = placeOf(id, code, {}, PLACES);
+    if (p) out[k] = p;
+  }
+  return new Response(JSON.stringify(out), { headers: { "content-type": "application/json; charset=utf-8", "cache-control": "public, max-age=86400",
+    "access-control-allow-origin": "*", "x-robots-tag": "noindex" } });
 }
 
 // A site's DNS for the site check, asked from the edge: { cnames, ips }. Cloudflare's resolver, so the answer isn't a

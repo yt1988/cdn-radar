@@ -132,10 +132,29 @@ import { probe, dns, once, readPop } from "./probe.mjs";
   const placeTxt = p => p ? (p[0] && p[1] ? `${p[0]}, ${country(p[1])}` : p[0] || country(p[1])) : "";
 
   /* ---------- data: the locations of the CDNs that publish them, where codes are, and where the visitor is ---------- */
-  const DATA = { pops: null, places: null };
+  const DATA = { pops: null };
   const getJ = (u, opt) => fetch(u, opt).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
   const popsP = getJ("/assets/" + D.files.pops).then(j => { DATA.pops = popMaps(j); }).catch(() => { DATA.pops = {}; });
-  const placesP = getJ("/assets/" + D.files.places).then(j => { DATA.places = j; }).catch(() => { DATA.places = { iata: {}, city: {} }; });
+  // Where the codes are that the CDNs' own lists don't hold (IATA codes, Akamai's cities): asked from this site's
+  // Worker as they come up, a few at a time (/places; data/places.json is 260 KB, a page needs a handful of it)
+  const PLACES = {}, asking = new Set();
+  let askT = 0;
+  function placeAt(id, code) {
+    if (!code) return null;
+    const own = placeOf(id, code, DATA.pops || {}, null);
+    if (own) return own;
+    const k = id + ":" + code;
+    if (k in PLACES) return PLACES[k];
+    if (!asking.has(k)) { asking.add(k); clearTimeout(askT); askT = setTimeout(askPlaces, 30); }
+    return null;
+  }
+  function askPlaces() {
+    const ks = [...asking].filter(k => !(k in PLACES));
+    asking.clear();
+    if (!ks.length) return;
+    getJ("/places?q=" + encodeURIComponent(ks.join(","))).then(j => { for (const k of ks) PLACES[k] = j[k] || null; redraw(); fillSite(); })
+      .catch(() => { for (const k of ks) PLACES[k] = null; });
+  }
   // where the visitor is: this site's Worker reads Cloudflare's guess from the request (/geo); null when self-hosted
   // as plain files. A precise location, when the visitor asks for one, replaces the coordinates.
   let U = null;
@@ -177,7 +196,7 @@ import { probe, dns, once, readPop } from "./probe.mjs";
   function rowOf(id) {
     const x = R[id];
     if (!x) return null;
-    const place = x.code && DATA.pops ? placeOf(id, x.code, DATA.pops, DATA.places) : null, m = me();
+    const place = x.code && DATA.pops ? placeAt(id, x.code) : null, m = me();
     const d = place && m && m.lat != null ? km(m.lat, m.lon, place[2], place[3]) : null;
     const list = BY[id] && BY[id].list && DATA.pops && DATA.pops[BY[id].list];
     const near = d != null && list && m ? nearest(id === "cfchina" ? Object.fromEntries(Object.entries(list).filter(([, p]) => p[1] === "CN")) : list, m.lat, m.lon) : null;
@@ -342,7 +361,7 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     if ($("#rerun")) $("#rerun").disabled = true;
     $("#prog") && $("#prog").classList.remove("end");
     redraw(); progress();
-    await Promise.all([popsP, placesP]);
+    await popsP;
     geoP.then(() => { if (!ctl.signal.aborted) redraw(); });
     // a few at a time: twenty connections at once would queue behind each other on a slow link
     // a CDN's page tests its own CDN first, so its verdict comes first
@@ -444,7 +463,7 @@ import { probe, dns, once, readPop } from "./probe.mjs";
   function fillSite() {
     const res = $("#siteRes"), x = SITE;
     if (!res || !x) return;
-    const place = x.code && BY[x.cdn] ? placeOf(x.cdn, x.code, DATA.pops || {}, DATA.places) : null, m = me();
+    const place = x.code && BY[x.cdn] ? placeAt(x.cdn, x.code) : null, m = me();
     const d = place && m && m.lat != null ? km(m.lat, m.lon, place[2], place[3]) : null;
     const cdn = x.cdn ? cdnName(x.cdn) : null;
     // the site, then what was found: its CDN, the location that answered, how far, how long
@@ -470,12 +489,12 @@ import { probe, dns, once, readPop } from "./probe.mjs";
 
   // The share component, with its version: /assets/ is cached for a week, and a page must not get last version's
   // copy (no received() before version 2, a stale cache fixed in 3)
-  const SHARE_JS = "/assets/share/share.js?v=3";
+  const SHARE_JS = "/assets/share/share.js?v=4";
 
   /* ---------- a shared result ---------- */
   // Opening /r/<code> shows that result as the test drew it, and doesn't test until the visitor asks
   async function showShared(S) {
-    await Promise.all([popsP, placesP]);
+    await popsP;
     SHOWN = { where: S.where };
     R = Object.fromEntries(S.rows.map(x => [x.id, { ms: x.ms, code: x.code, err: x.ms == null ? "fail" : null }]));
     done = total;
@@ -524,7 +543,7 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     y += 46;
     x.fillStyle = C.muted; x.font = `500 22px ${F}`; x.fillText(clip(x, SUB, W - 2 * P), P, y);
     y += 50;
-    const where = r => { const place = r.code ? placeOf(r.id, r.code, DATA.pops || {}, DATA.places) : null, c = popCode(r.id, r.code);
+    const where = r => { const place = r.code ? placeAt(r.id, r.code) : null, c = popCode(r.id, r.code);
       return r.code ? [c, place && place[0]].filter(Boolean).filter((s, j, l) => l.indexOf(s) === j).join(" ") : "—"; };
     const name = r => BY[r.id].short || cdnName(r.id);
     const order = [...rows.filter(r => r.ms != null).sort((p, q) => p.ms - q.ms), ...rows.filter(r => r.ms == null)];
@@ -565,7 +584,7 @@ import { probe, dns, once, readPop } from "./probe.mjs";
   else {
     // ?site=: a link someone sent to test this site from here
     const q = new URLSearchParams(location.search).get("site"), h = q && hostOf(q);
-    if (h && siteForm) { $("#siteIn").value = h; Promise.all([popsP, placesP]).then(() => checkSite(h)); }
+    if (h && siteForm) { $("#siteIn").value = h; popsP.then(() => checkSite(h)); }
     start();
   }
 })();

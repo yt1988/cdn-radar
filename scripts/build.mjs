@@ -7,7 +7,8 @@
 //                                                 (Cloudflare, Bunny, Wikimedia: data/pops.json), with a test of
 //                                                 whether it's the one that serves you
 //   assets/app.<hash>.js, .css, l.<lang>.<hash>.js the page's code, styles and strings
-//   assets/pops.<hash>.json, places.<hash>.json   the locations and where codes are (data/), fetched by the page
+//   assets/pops.<hash>.json                       the locations of the CDNs that publish them (data/), fetched by the page;
+//                                                 where other codes are, the Worker answers (/places)
 //   assets/map.<hash>.svg                         the world's land for the map (world-atlas, Natural Earth 1:110m)
 //   rules/clash.yaml, surge.list, loon.list, quanx.list, singbox.json   the test hosts as rule sets for proxy clients
 //   sitemap.xml (and one per language), robots.txt, llms.txt, _headers
@@ -91,15 +92,14 @@ export async function build() {
   for (const [l] of langs) for (const k of Object.keys(en)) if (!(k in I[l])) throw new Error(`i18n/${l}.mjs is missing "${k}"`);
   const tpl = await readFile(new URL("page.html", src), "utf8");
   const POPS = JSON.parse(await readFile(new URL("data/pops.json", root), "utf8"));
-  const PLACES = await readFile(new URL("data/places.json", root), "utf8");
 
   const js = (await bundle({ entryPoints: [fileURLToPath(new URL("app.js", src))], bundle: true, minify: true, format: "iife", target: "es2020",
     legalComments: "none", write: false, absWorkingDir: fileURLToPath(root), external: ["/assets/share/*"] })).outputFiles[0].text;
   const css = (await transform((await Promise.all(["fonts.css", "base.css", "style.css"].map(f => readFile(new URL(f, src), "utf8")))).join("\n"),
     { loader: "css", minify: true, legalComments: "none" })).code;
   const popsJ = JSON.stringify(POPS), map = await mapSvg();
-  const F = { js: `app.${hash(js)}.js`, css: `app.${hash(css)}.css`, pops: `pops.${hash(popsJ)}.json`, places: `places.${hash(PLACES)}.json`, map: `map.${hash(map)}.svg` };
-  const files = { ["assets/" + F.js]: js, ["assets/" + F.css]: css, ["assets/" + F.pops]: popsJ, ["assets/" + F.places]: PLACES.trim(), ["assets/" + F.map]: map };
+  const F = { js: `app.${hash(js)}.js`, css: `app.${hash(css)}.css`, pops: `pops.${hash(popsJ)}.json`, map: `map.${hash(map)}.svg` };
+  const files = { ["assets/" + F.js]: js, ["assets/" + F.css]: css, ["assets/" + F.pops]: popsJ, ["assets/" + F.map]: map };
   const sitemaps = Object.fromEntries(langs.map(([l]) => [l, []]));
 
   for (const [lang, slug, locale] of langs) {
@@ -293,7 +293,7 @@ ${tiles}
         `<script type="application/ld+json">${json({ "@context": "https://schema.org", "@graph": graph })}</script>`,
       ].join("\n");
       const paths = Object.fromEntries(langs.map(([l, sl]) => [l, at(sl)]));
-      const data = { lang, kind: pg.kind, cdn: pg.cdn || null, pop: pg.pop || null, paths, home: pathOf(slug), popHref, files: { pops: F.pops, places: F.places } };
+      const data = { lang, kind: pg.kind, cdn: pg.cdn || null, pop: pg.pop || null, paths, home: pathOf(slug), popHref, files: { pops: F.pops } };
       const html = tpl
         .replace(/(<(\w+)\b[^>]*\sdata-i="(\w+)"[^>]*>)([^<]*)(<\/\2>)/g, (m, open, tag, k, inner, close) => open + esc(T(k)) + close)
         .replace(/\{\{a:(\w+)\}\}/g, (m, k) => esc(T(k)))
@@ -318,7 +318,7 @@ ${tiles}
   }
   files["sitemap.xml"] = `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
     langs.map(([l]) => `  <sitemap><loc>${SITE}/sitemap-${l.toLowerCase()}.xml</loc><lastmod>${POPS.updated}</lastmod></sitemap>`).join("\n") + "\n</sitemapindex>\n";
-  files["robots.txt"] = `User-agent: *\nAllow: /\nDisallow: /r/\nDisallow: /*/r/\nDisallow: /geo\nDisallow: /dns\n\nSitemap: ${SITE}/sitemap.xml\n`;
+  files["robots.txt"] = `User-agent: *\nAllow: /\nDisallow: /r/\nDisallow: /*/r/\nDisallow: /geo\nDisallow: /dns\nDisallow: /places\n\nSitemap: ${SITE}/sitemap.xml\n`;
   files["llms.txt"] = `# ${en.app_name} · 1ms.dog
 
 > Free CDN location checker in the browser: for each big CDN, which of its locations (points of presence) answers the
@@ -359,9 +359,6 @@ ${tiles}
   ! Cache-Control
   Cache-Control: public, max-age=31536000, immutable
 /assets/pops.*
-  ! Cache-Control
-  Cache-Control: public, max-age=31536000, immutable
-/assets/places.*
   ! Cache-Control
   Cache-Control: public, max-age=31536000, immutable
 /assets/map.*

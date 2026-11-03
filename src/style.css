@@ -5,7 +5,7 @@ h2 { font-size: 15px; font-weight: 700; }
 .btn svg { width: 15px; height: 15px; }
 .btn.pri { background: var(--ink); color: var(--ink-fg); border-color: transparent; font-weight: 600; }
 .btn:disabled { opacity: .5; cursor: default; }
-.mini { border: 1px solid var(--line); background: transparent; border-radius: 6px; font-size: 11.5px; padding: 1px 8px; cursor: pointer; color: var(--muted); white-space: nowrap; }
+.mini { border: 1px solid var(--line); background: transparent; border-radius: 6px; font-size: 12px; padding: 1px 8px; cursor: pointer; color: var(--muted); white-space: nowrap; }
 .mini:hover:not(:disabled) { color: var(--fg); border-color: var(--ink); }
 .skl { display: inline-block; width: 180px; max-width: 80%; height: 14px; border-radius: 6px; background: var(--soft); vertical-align: middle; animation: blink 1.4s ease-in-out infinite; }
 @keyframes blink { 50% { opacity: .45; } }
@@ -101,7 +101,7 @@ svg.ext[viewBox] { width: .95em; height: .95em; flex: none; }
 .cd, .cm { text-align: right; }
 .cd b, .cm b { font: 650 13.5px var(--f-num); font-variant-numeric: tabular-nums; }
 .cm b { display: flex; justify-content: flex-end; align-items: center; gap: 6px; }
-.tag { display: inline-block; font: 600 11px/17px var(--f-ui); padding: 0 6px; border-radius: 4px; font-style: normal; background: var(--soft); color: var(--muted); vertical-align: 1px; }
+.tag { display: inline-block; font: 600 12px/18px var(--f-ui); padding: 0 6px; border-radius: 4px; font-style: normal; background: var(--soft); color: var(--muted); vertical-align: 1px; }
 .tag.t1 { background: color-mix(in srgb, var(--t1) 14%, transparent); color: var(--t1); }
 .tag.t2 { background: color-mix(in srgb, var(--t2) 14%, transparent); color: var(--t2); }
 .tag.t3 { background: color-mix(in srgb, var(--t3) 14%, transparent); color: var(--t3); }
@@ -141,7 +141,7 @@ svg.ext[viewBox] { width: .95em; height: .95em; flex: none; }
 .map .me-ring, .map .here-ring { fill: none; stroke: var(--fg); stroke-width: .8; opacity: .5; }
 .map .here-ring { stroke: var(--ink); opacity: .8; }
 .you { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font-size: 13px; margin: 0; }
-.you-k { font: 600 11px var(--f-ui); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.you-k { font: 600 12px var(--f-ui); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
 
 /* a CDN's page: how its location is read, and its locations by country */
 .art { padding: 22px 22px 14px; }
@@ -196,7 +196,7 @@ svg.ext[viewBox] { width: .95em; height: .95em; flex: none; }
 .rules-b p.m { font-size: 12px; color: var(--muted); }
 .rules-f { display: flex; flex-wrap: wrap; gap: 10px; }
 .rules-f label { display: flex; flex-direction: column; gap: 4px; flex: 1 1 200px; font-size: 12px; color: var(--muted); }
-.rules-f select { height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--fg); font: 500 14px var(--f-ui); }
+.rules-f select { height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--fg); font: 500 16px var(--f-ui); }
 .rules-b textarea { display: block; width: 100%; resize: vertical; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg); color: var(--fg);
   font: 12.5px/1.6 var(--f-num); white-space: pre; overflow: auto; }
 /* the rule set to subscribe to first, the rules to paste folded under it */
@@ -233,7 +233,11 @@ details.rblk summary:hover { color: var(--fg); }
   /* phones: the three numbers in a row, the visitor under them */
   .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
   .stat { padding: 9px 10px; gap: 2px; }
-  .stat .k, .stat .s { font-size: 11px; }
+  .stat .k, .stat .s { font-size: 12px; }
+  /* the numbers' captions wrap rather than lose their end; so do the CDNs' names */
+  .stat .s { white-space: normal; line-height: 1.35; }
+  .cr > span.cn { white-space: normal; }
+  .cn a, .tt a { white-space: normal; overflow: visible; line-height: 1.3; }
   .stat b { font-size: 15px; letter-spacing: -.03em; }
   .stat.you b { font-size: 14px; }
   .stat.you { grid-column: 1 / -1; }
@@ -253,4 +257,10 @@ details.rblk summary:hover { color: var(--fg); }
   .help-b { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
   .help-nav { display: none; }
   .help-b .help-pick { display: flex; }
+}
+
+/* touch screens: every link and text button at least 32px tall to tap */
+@media (pointer: coarse) {
+  .cn a, .tt a, .lnk, .links a, .others a, .cp b a, .nl a, .crumbs a, a.q0 { min-height: 32px; display: inline-flex; align-items: center; }
+  .tt a { display: flex; }
 }

@@ -16,3 +16,12 @@ test("a shared link whose code can't be read is a 404, in every language and und
   assert.equal(h.status, 404);
   assert.equal(await h.text(), "");
 });
+
+test("/places says where the codes a CDN gave are, the page's handful of data/places.json", async () => {
+  const r = await get("/places?q=" + encodeURIComponent("cloudfront:NRT,akamai:JP-TOKYO,fastly:ZZZ,nope:NRT,azure:bad code"));
+  assert.equal(r.status, 200);
+  const j = await r.json();
+  assert.deepEqual(Object.keys(j).sort(), ["akamai:JP-TOKYO", "cloudfront:NRT"]);
+  assert.equal(j["cloudfront:NRT"][1], "JP");
+  assert.equal(j["akamai:JP-TOKYO"][0], "Tokyo");
+});
