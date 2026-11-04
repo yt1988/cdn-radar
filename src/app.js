@@ -335,7 +335,7 @@ import { probe, dns, once, readPop } from "./probe.mjs";
   }
   // why a far location: DNS or the route
   function why(id) {
-    const m = me(), k = blame(id, RES, m && m.cc);
+    const m = me(), x = rowOf(id), k = blame(id, RES, m && m.cc, x && x.place ? x.place[1] : null);
     return k ? t(k, { cdn: cdnName(id), country: RES && RES.cc ? country(RES.cc) : "" }) : "";
   }
   // the resolver itself, as a finding (with DB-IP's credit, which its license asks for next to what it placed)

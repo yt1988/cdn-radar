@@ -9,8 +9,12 @@ test("a far location is put down to DNS or to the route by how the CDN picks it"
   for (const c of CDNS.filter(c => c.read)) assert.ok(BY_DNS.has(c.id) !== BY_ANYCAST.has(c.id), c.id + ": exactly one way of picking");
   assert.equal(blame("cloudflare", { cc: "US", ecs: null }, "CN"), "at_any");
   assert.equal(blame("akamai", { cc: "US", ecs: "1.2.3.0/24" }, "CN"), "at_dns_ecs");
-  assert.equal(blame("akamai", { cc: "US", ecs: null }, "CN"), "at_dns_far");
-  assert.equal(blame("cloudfront", { cc: "CN", ecs: null }, "CN"), "at_dns_same");
+  // a resolver in the US, the visitor in China, the location in the US: the resolver sent them there
+  assert.equal(blame("akamai", { cc: "US", ecs: null }, "CN", "US"), "at_dns_far");
+  // a Chinese resolver, a proxy's exit in Japan, Amsterdam answering: three places, split routing (seen 2026-11-04)
+  assert.equal(blame("akamai", { cc: "CN", ecs: null }, "JP", "NL"), "at_dns_split");
+  assert.equal(blame("akamai", { cc: "US", ecs: null }, "CN"), "at_dns_split");
+  assert.equal(blame("cloudfront", { cc: "CN", ecs: null }, "CN", "US"), "at_dns_same");
   assert.equal(blame("akamai", null, "CN"), null);
   assert.equal(blame("akamai", { cc: null, ecs: null }, "CN"), null);
   assert.equal(blame("google", { cc: "US", ecs: null }, "CN"), null);

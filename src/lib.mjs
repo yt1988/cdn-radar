@@ -46,18 +46,23 @@ export const FAST = 30;   // ms: a round trip this short is a nearby edge, whate
 // decides). Timed-only CDNs aren't placed, so they have no reason to give.
 export const BY_DNS = new Set(["akamai", "cloudfront", "bunny", "wikimedia"]);
 export const BY_ANYCAST = new Set(["cloudflare", "cfchina", "fastly", "azure"]);
-// Why a far location, given the visitor's resolver as 1ms.dog's own DNS saw it (res: { cc, ecs }) and the visitor's
-// country: a string key, or null when it can't be told
+// Why a far location, given the visitor's resolver as 1ms.dog's own DNS saw it (res: { cc, ecs }), the visitor's
+// country (where their requests come out, which is a proxy's when they use one) and the country of the location that
+// answered: a string key, or null when it can't be told
 //   at_any       anycast: the route, not DNS; changing the resolver won't help
 //   at_dns_ecs   by DNS, but the resolver passed on the visitor's subnet: not the resolver's doing
-//   at_dns_far   by DNS, from a resolver in another country that passed nothing on: a nearer resolver should help
+//   at_dns_far   by DNS, from a resolver in another country that passed nothing on, and the location is in the
+//                resolver's country: a nearer resolver should help
+//   at_dns_split the resolver, the requests and the location are in three different places: most likely split routing
+//                (the CDN's name looked up on a proxy's side, this site's directly), so it can't be told
 //   at_dns_same  by DNS, from a resolver in the visitor's own country: unlikely the resolver's doing
-export function blame(id, res, cc) {
+export function blame(id, res, cc, at) {
   if (BY_ANYCAST.has(id)) return "at_any";
   if (!BY_DNS.has(id) || !res) return null;
   if (res.ecs) return "at_dns_ecs";
   if (!res.cc || !cc) return null;
-  return res.cc !== cc ? "at_dns_far" : "at_dns_same";
+  if (res.cc === cc) return "at_dns_same";
+  return at && at === res.cc ? "at_dns_far" : "at_dns_split";
 }
 
 // What the results say together: rows = [{ id, code, place, ms, d, near }] (d: km when the visitor's location is

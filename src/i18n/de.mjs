@@ -105,6 +105,7 @@ export default {
   at_dns_far: "{cdn} wählt den Standort danach, wo dein DNS-Server steht. Deiner steht in einem anderen Land ({country}) und schickt deinen Adressblock nicht mit, deshalb wurdest du dorthin geschickt. Mit einem DNS-Server in deiner Nähe, etwa dem deines Anbieters, bekommst du wahrscheinlich einen näheren Standort.",
   at_dns_ecs: "{cdn} wählt den Standort per DNS, und diese Anfrage enthielt deinen Adressblock. Am DNS liegt die Entfernung also nicht: {cdn} oder dein Anbieter hat so entschieden.",
   at_dns_same: "{cdn} wählt den Standort danach, wo dein DNS-Server steht. Deiner steht im selben Land bzw. derselben Region wie du, daher liegt die Entfernung wahrscheinlich nicht am DNS.",
+  at_dns_split: "Dein DNS-Server, der Ausgang deines Datenverkehrs und der {cdn}-Standort liegen an drei verschiedenen Orten – vermutlich wegen Split-Routing im Proxy: Der Name von {cdn} wurde womöglich auf der Proxy-Seite aufgelöst. So lässt sich nicht sagen, ob es am DNS liegt. Teste beide Wege getrennt mit „Nur direkt oder nur über Proxy testen“.",
   at_any: "{cdn} nutzt Anycast: Den Standort bestimmt das Routing deines Anbieters, nicht DNS. Ein anderer DNS-Server hilft hier nicht.",
 
   h_site: "Website prüfen",

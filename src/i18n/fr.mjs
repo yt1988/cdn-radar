@@ -105,6 +105,7 @@ export default {
   at_dns_far: "{cdn} choisit le datacenter selon l'emplacement de votre serveur DNS. Le vôtre est dans un autre pays ({country}) et ne transmet pas votre bloc d'adresses : vous avez donc été envoyé là-bas. Avec un DNS plus proche, comme celui de votre fournisseur, vous obtiendrez probablement un datacenter plus proche.",
   at_dns_ecs: "{cdn} choisit le datacenter par le DNS, et cette requête a transmis votre bloc d'adresses : la distance ne vient donc pas du DNS, c'est {cdn} ou votre fournisseur qui l'a choisie.",
   at_dns_same: "{cdn} choisit le datacenter selon l'emplacement de votre serveur DNS. Le vôtre est dans le même pays ou la même région que vous : le DNS n'explique probablement pas la distance.",
+  at_dns_split: "Votre serveur DNS, la sortie de votre trafic et le datacenter {cdn} sont à trois endroits différents, sans doute à cause d'un routage séparé par le proxy : le nom de {cdn} a peut-être été résolu côté proxy. Impossible alors de dire si le DNS est en cause. Testez chaque voie séparément avec « Tester seulement en direct ou seulement via le proxy ».",
   at_any: "{cdn} utilise l'anycast : c'est le routage de votre fournisseur qui décide du datacenter, pas le DNS. Changer de DNS n'y changera rien.",
 
   h_site: "Vérifier un site",

@@ -105,6 +105,7 @@ export default {
   at_dns_far: "{cdn} picks a data center by where your DNS resolver is. Yours is in another country ({country}) and doesn't pass on your address block, so you were sent there. A resolver closer to you, such as your provider's, will likely get you a closer data center.",
   at_dns_ecs: "{cdn} picks a data center through DNS, and this lookup passed on your address block, so DNS isn't why it's far: {cdn} or your provider chose it.",
   at_dns_same: "{cdn} picks a data center by where your DNS resolver is. Yours is in the same country or region as you, so DNS is unlikely to be why it's far.",
+  at_dns_split: "Your DNS resolver, where your traffic exits and {cdn}'s data center are in three different places, most likely because of proxy split routing: {cdn}'s name may have been looked up on the proxy's side. That makes it impossible to tell whether DNS is the cause. Test each way separately with \"Test only direct or only through a proxy\".",
   at_any: "{cdn} uses anycast: your provider's routing decides the data center, not DNS, so changing DNS won't help.",
 
   h_site: "Check a website",

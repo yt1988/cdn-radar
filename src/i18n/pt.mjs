@@ -105,6 +105,7 @@ export default {
   at_dns_far: "A {cdn} escolhe o data center pela localização do seu servidor DNS. O seu fica em outro país ({country}) e não envia o seu bloco de endereços, por isso você foi mandado para lá. Com um DNS mais perto, como o da sua operadora, você provavelmente pega um data center mais próximo.",
   at_dns_ecs: "A {cdn} escolhe o data center pelo DNS, e esta consulta levou o seu bloco de endereços, então a distância não vem do DNS: foi escolha da {cdn} ou da sua operadora.",
   at_dns_same: "A {cdn} escolhe o data center pela localização do seu servidor DNS. O seu fica no mesmo país ou região que você, então é pouco provável que o DNS explique a distância.",
+  at_dns_split: "Seu servidor DNS, a saída do seu tráfego e o data center da {cdn} estão em três lugares diferentes, provavelmente por roteamento dividido no proxy: o nome da {cdn} pode ter sido resolvido do lado do proxy. Assim não dá para saber se a causa é o DNS. Teste cada caminho separadamente com \"Testar só direto ou só pelo proxy\".",
   at_any: "A {cdn} usa anycast: quem decide o data center é o roteamento da sua operadora, não o DNS. Trocar de DNS não adianta.",
 
   h_site: "Verificar um site",

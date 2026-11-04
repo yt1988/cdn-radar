@@ -105,6 +105,7 @@ export default {
   at_dns_far: "{cdn} elige el centro de datos según dónde está tu servidor DNS. El tuyo está en otro país ({country}) y no envía tu bloque de direcciones, así que te mandaron allí. Con un DNS más cercano, como el de tu proveedor, lo más probable es que te toque un centro de datos más cerca.",
   at_dns_ecs: "{cdn} elige el centro de datos por DNS, y esta consulta incluyó tu bloque de direcciones, así que la distancia no se debe al DNS: lo eligió {cdn} o tu proveedor.",
   at_dns_same: "{cdn} elige el centro de datos según dónde está tu servidor DNS. El tuyo está en tu mismo país o región, así que es poco probable que el DNS explique la distancia.",
+  at_dns_split: "Tu servidor DNS, el punto por donde sale tu tráfico y el centro de datos de {cdn} están en tres sitios distintos, seguramente por un enrutamiento dividido del proxy: el nombre de {cdn} pudo resolverse del lado del proxy. Así no se puede saber si la causa es el DNS. Mide cada camino por separado con «Medir solo directo o solo por proxy».",
   at_any: "{cdn} usa anycast: el centro de datos lo decide el enrutamiento de tu proveedor, no el DNS, así que cambiar de DNS no ayuda.",
 
   h_site: "Comprobar una web",
