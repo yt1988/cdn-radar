@@ -403,6 +403,8 @@ import { probe, dns, once, readPop } from "./probe.mjs";
       set("stMs", msTxt(x.ms), x.d != null ? t("r_floor", { ms: fmtMs(floorMs(x.d)) }) : "", msTier(x.ms));
       if (x.d != null && missedNearest(x.d, x.near)) out.push(["warn", t("f_notnearest_tip", { cdn, code: popCode(id, x.near[0]), place: placeTxt(x.near[1]), km: kmTxt(x.near[2]) })]);
       if (x.d != null && detoured(x.ms, x.d)) out.push(["warn", t("f_slow_tip", { floor: msTxt(floorMs(x.d)), km: kmTxt(x.d) })]);
+      // far, with nothing above to say so: what it costs; then why, when that can be told
+      if (x.d != null && isFar(x) && !out.length) out.push(["warn", t("f_far", { cdn, place: placeTxt(x.place), km: kmTxt(x.d), ms: msTxt(x.ms) })]);
       if (x.d != null && isFar(x) && why(id)) out.push(["warn", why(id)]);
     } else {
       // timed only (or it didn't say): the round trip, and how far the edge can be at most
