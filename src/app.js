@@ -3,7 +3,7 @@
 // fastest one the distance allows. The map and the verdict follow. A location page (/<cdn>/<code>/) tests its one CDN.
 // Strings: window.L1MS.
 import { CDNS, BY, HOSTS, nameOf, placeOf, popMaps, SITE_HEADERS, SITE_TIMING, PARSE, cdnOfName, isCloudflareIP } from "./cdns.mjs";
-import { km, floorMs, tierOf, detoured, nearest, missedNearest, summary, FAST, isFar, encode as encodeShare, decode as decodeShare, sharePath, hostOf } from "./lib.mjs";
+import { km, floorMs, tierOf, detoured, nearest, missedNearest, summary, FAST, isFar, blame, encode as encodeShare, decode as decodeShare, sharePath, hostOf } from "./lib.mjs";
 import { probe, dns, once, readPop } from "./probe.mjs";
 
 (function () {
@@ -305,9 +305,42 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     if (f.key === "f_more") return t("f_more", { n: f.n });
     if (f.key === "f_slowpath") return t("f_slowpath", { cdn: cdnName(r.id), place: placeTxt(r.place), km: kmTxt(r.d), ms: msTxt(r.ms), floor: msTxt(floorMs(r.d)) });
     const head = t("f_far", { cdn: cdnName(r.id), place: placeTxt(r.place), km: kmTxt(r.d), ms: msTxt(r.ms) });
-    // sentences in Chinese and Japanese follow each other without a space
-    return head + (missedNearest(r.d, r.near) ? (/[。！？]$/.test(head) ? "" : " ") + t("f_far_near", { near: [popCode(r.id, r.near[0]), placeTxt(r.near[1])].filter(Boolean).join(" · "), km: kmTxt(r.near[2]) }) : "");
+    return join(head, missedNearest(r.d, r.near) ? t("f_far_near", { near: [popCode(r.id, r.near[0]), placeTxt(r.near[1])].filter(Boolean).join(" · "), km: kmTxt(r.near[2]) }) : "", why(r.id));
   }
+  // sentences in Chinese and Japanese follow each other without a space
+  const join = (...s) => s.filter(Boolean).reduce((a, b) => a + (/[。！？]$/.test(a) ? "" : " ") + b);
+
+  // The visitor's DNS resolver, as 1ms.dog's own name server saw it (dns-test's l.1ms.dog): the page looks up a name
+  // made for this run, which reaches that server through the resolver, and the answer says who asked and whether it
+  // passed on the visitor's subnet. It tells a far location chosen by DNS from one chosen by the route (lib.blame).
+  // Kept for this run only: never in a share link, a share card or a problem report. Only on 1ms.dog.
+  let RES = null;
+  async function askResolver(ctl) {
+    RES = null;
+    if (!/(^|\.)1ms\.dog$/.test(location.hostname) || SHOWN) return;
+    const tok = Array.from(crypto.getRandomValues(new Uint8Array(12)), b => (b % 36).toString(36)).join("");
+    try {
+      const j = await getJ(`https://${tok}-c.l.1ms.dog:2053/`, { cache: "no-store", signal: ctl.signal });
+      // the lookups that answered the browser come first; a resolver's own follow-ups (other paths, a prefetch, a
+      // second pool passing a subnet) come a few hundred ms later and aren't what the CDN's answer was based on
+      const all = (j.hits || []).filter(h => h.zone === "l"), early = all.filter(h => h.ms <= 150), hits = early.length ? early : all;
+      if (!hits.length || ctl.signal.aborted) return;
+      // a resolver pool can ask from several addresses: the country most of them are in, and a subnet if any passed one
+      const by = {};
+      for (const h of hits) if (h.cc) by[h.cc] = (by[h.cc] || 0) + 1;
+      const cc = Object.keys(by).sort((a, b) => by[b] - by[a])[0] || null, h = hits.find(x => x.cc === cc) || hits[0];
+      RES = { cc, org: h.org || (h.asn ? "AS" + h.asn : ""), ecs: (hits.find(x => x.ecs) || {}).ecs || null, geo: j.geo || "" };
+      redraw();
+    } catch (e) {}
+  }
+  // why a far location: DNS or the route
+  function why(id) {
+    const m = me(), k = blame(id, RES, m && m.cc);
+    return k ? t(k, { cdn: cdnName(id), country: RES && RES.cc ? country(RES.cc) : "" }) : "";
+  }
+  // the resolver itself, as a finding (with DB-IP's credit, which its license asks for next to what it placed)
+  const resItem = () => !RES || SHOWN ? "" : `<li class="ok"><svg viewBox="0 0 16 16" aria-hidden="true">${ICON.ok}</svg><span>${esc(t("at_res", {
+    org: RES.org || "—", country: RES.cc ? country(RES.cc) : "—", ecs: t(RES.ecs ? "at_ecs_yes" : "at_ecs_no") }))} <a class="m" href="https://db-ip.com" target="_blank" rel="noopener" title="${esc(RES.geo)}">DB-IP</a></span></li>`;
   const FINDS0 = $("#finds") ? $("#finds").innerHTML : "";   // the findings' placeholders, as the page came
   function hero(final) {
     const rows = LIST.map(c => rowOf(c.id)).filter(Boolean);
@@ -342,7 +375,8 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     // "nothing stands out" only once everything is in
     if (!final && !s.findings.length) { $("#finds").innerHTML = FINDS0; return; }
     const items = s.findings.length ? s.findings : [{ kind: "ok", key: "f_none" }];
-    $("#finds").innerHTML = items.map(x => `<li class="${x.kind}"><svg viewBox="0 0 16 16" aria-hidden="true">${ICON[x.kind]}</svg><span>${esc(x.key === "f_none" ? t("f_none") : finding(x))}</span></li>`).join("");
+    $("#finds").innerHTML = items.map(x => `<li class="${x.kind}"><svg viewBox="0 0 16 16" aria-hidden="true">${ICON[x.kind]}</svg><span>${esc(x.key === "f_none" ? t("f_none") : finding(x))}</span></li>`).join("")
+      + (final ? resItem() : "");
   }
 
   // A CDN's page: its own verdict as soon as it has answered. Where it serves you from, how far, how long, and what
@@ -366,6 +400,7 @@ import { probe, dns, once, readPop } from "./probe.mjs";
       set("stMs", msTxt(x.ms), x.d != null ? t("r_floor", { ms: fmtMs(floorMs(x.d)) }) : "", msTier(x.ms));
       if (x.d != null && missedNearest(x.d, x.near)) out.push(["warn", t("f_notnearest_tip", { cdn, code: popCode(id, x.near[0]), place: placeTxt(x.near[1]), km: kmTxt(x.near[2]) })]);
       if (x.d != null && detoured(x.ms, x.d)) out.push(["warn", t("f_slow_tip", { floor: msTxt(floorMs(x.d)), km: kmTxt(x.d) })]);
+      if (x.d != null && isFar(x) && why(id)) out.push(["warn", why(id)]);
     } else {
       // timed only (or it didn't say): the round trip, and how far the edge can be at most
       v.textContent = t(BY[id].read ? "pv_nopop" : "pv_timed", { cdn, ms: msTxt(x.ms) }); v.className = "verdict " + (x.ms < FAST ? "t1" : x.ms < 80 ? "" : "warn");
@@ -375,7 +410,8 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     // next to the others, once they are all in
     const all = CDNS.filter(c => R[c.id] && R[c.id].ms != null);
     if (final && x.ms != null && all.length > 1) out.push(["ok", t("pv_rank", { rank: all.filter(c => R[c.id].ms < x.ms).length + 1, n: all.length })]);
-    if (final || out.length) $("#finds").innerHTML = (out.length ? out : [["ok", t("f_none")]]).map(([k, s]) => `<li class="${k}"><svg viewBox="0 0 16 16" aria-hidden="true">${ICON[k]}</svg><span>${esc(s)}</span></li>`).join("");
+    if (final || out.length) $("#finds").innerHTML = (out.length ? out : [["ok", t("f_none")]]).map(([k, s]) => `<li class="${k}"><svg viewBox="0 0 16 16" aria-hidden="true">${ICON[k]}</svg><span>${esc(s)}</span></li>`).join("")
+      + (final ? resItem() : "");
   }
 
   // the visitor: city and country, and their network
@@ -412,6 +448,7 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     if ($("#rerun")) $("#rerun").disabled = true;
     $("#prog") && $("#prog").classList.remove("end");
     redraw(); progress();
+    askResolver(ctl);
     await popsP;
     geoP.then(() => { if (!ctl.signal.aborted) redraw(); });
     // a few at a time: twenty connections at once would queue behind each other on a slow link
