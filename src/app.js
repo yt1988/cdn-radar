@@ -537,17 +537,20 @@ import { probe, dns, once, readPop } from "./probe.mjs";
   // trip (they must read when the card is shrunk to a chat app's preview); the others under them, fastest first. Never
   // an address, and distances only when the visitor shows their city (they would place it otherwise)
   function drawCard(x, kit, rows, site) {
-    const { W, P, F, M, v, clip } = kit;
+    const { W, P, F, M, v, clip, fit } = kit;
     const C = { fg: v("fg"), muted: v("muted"), line: v("line"), warn: v("warn"), bad: v("bad"), t1: v("t1") };
     let y = kit.top + 64;
     x.textBaseline = "alphabetic"; x.textAlign = "left";
-    x.fillStyle = C.fg; x.font = `750 40px ${F}`; x.fillText(clip(x, $("#verdict") ? $("#verdict").textContent : t("app_name"), W - 2 * P), P, y);
+    const verdict = $("#verdict") ? $("#verdict").textContent : t("app_name");
+    x.fillStyle = C.fg; fit(x, verdict, W - 2 * P, 40, 28, 750); x.fillText(clip(x, verdict, W - 2 * P), P, y);
     y += 46;
-    x.fillStyle = C.muted; x.font = `500 22px ${F}`; x.fillText(clip(x, SUB, W - 2 * P), P, y);
+    x.fillStyle = C.muted; fit(x, SUB, W - 2 * P, 22, 18, 500); x.fillText(clip(x, SUB, W - 2 * P), P, y);
     y += 50;
     const where = r => { const place = r.code ? placeAt(r.id, r.code) : null, c = popCode(r.id, r.code);
       return r.code ? [c, place && place[0]].filter(Boolean).filter((s, j, l) => l.indexOf(s) === j).join(" ") : "—"; };
     const name = r => BY[r.id].short || cdnName(r.id);
+    // a location that won't fit even at the smallest size keeps just its code (FRA rather than "FRA Frankf…")
+    const place = (r, w, size, min) => { const s = where(r); fit(x, s, w, size, min, 500); return x.measureText(s).width <= w ? s : (popCode(r.id, r.code) || s); };
     const order = [...rows.filter(r => r.ms != null).sort((p, q) => p.ms - q.ms), ...rows.filter(r => r.ms == null)];
     const top = order.slice(0, 3), rest = order.slice(3);
     // the fastest three: a column each, the round trip big
@@ -555,8 +558,8 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     top.forEach((r, i) => {
       const cx = P + i * (tw + 28);
       x.fillStyle = BY[r.id].c; x.beginPath(); x.arc(cx + 9, y + 2, 9, 0, Math.PI * 2); x.fill();
-      x.fillStyle = C.fg; x.font = `700 28px ${F}`; x.fillText(clip(x, name(r), tw - 30), cx + 28, y + 12);
-      x.fillStyle = C.muted; x.font = `500 24px ${F}`; x.fillText(clip(x, where(r), tw), cx, y + 52);
+      x.fillStyle = C.fg; fit(x, name(r), tw - 30, 28, 22, 700); x.fillText(clip(x, name(r), tw - 30), cx + 28, y + 12);
+      x.fillStyle = C.muted; x.fillText(clip(x, place(r, tw, 24, 18), tw), cx, y + 52);
       x.fillStyle = r.ms == null ? C.bad : C.fg; x.font = `750 52px ${M}`; x.fillText(r.ms == null ? "—" : msTxt(r.ms), cx, y + 118);
     });
     y += 170;
@@ -564,15 +567,17 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     rest.forEach((r, i) => {
       const cx = P + (i % 2) * (colW + 40), cy = y + Math.floor(i / 2) * 52;
       x.fillStyle = BY[r.id].c; x.beginPath(); x.arc(cx + 7, cy - 8, 7, 0, Math.PI * 2); x.fill();
-      x.fillStyle = C.fg; x.font = `650 23px ${F}`; x.fillText(clip(x, name(r), colW * .42), cx + 24, cy);
-      x.fillStyle = C.muted; x.font = `500 21px ${F}`; x.fillText(clip(x, where(r), colW * .38), cx + 24 + colW * .42, cy);
+      x.fillStyle = C.fg; fit(x, name(r), colW * .4, 23, 18, 650); x.fillText(clip(x, name(r), colW * .4), cx + 24, cy);
+      // the location gets what the name and the round trip leave of the column
+      const pw = colW - 24 - colW * .42 - 90;
+      x.fillStyle = C.muted; x.fillText(clip(x, place(r, pw, 21, 16), pw), cx + 24 + colW * .42, cy);
       x.textAlign = "right"; x.fillStyle = r.ms == null ? C.bad : C.fg; x.font = `650 22px ${M}`;
       x.fillText(r.ms == null ? "—" : msTxt(r.ms), cx + colW, cy); x.textAlign = "left";
     });
     if (site) {
       const sy = y + Math.ceil(rest.length / 2) * 52 + 16;
       x.strokeStyle = C.line; x.lineWidth = 2; x.beginPath(); x.moveTo(P, sy - 34); x.lineTo(W - P, sy - 34); x.stroke();
-      x.fillStyle = C.fg; x.font = `650 23px ${F}`; x.fillText(clip(x, site.host, W * .4), P, sy);
+      x.fillStyle = C.fg; fit(x, site.host, W * .4, 23, 16, 650); x.fillText(clip(x, site.host, W * .4), P, sy);
       x.fillStyle = C.muted; x.font = `500 21px ${F}`;
       x.fillText(clip(x, [site.cdn ? cdnName(site.cdn) : t("s_nocdn"), site.code].filter(Boolean).join(" · "), W * .4), P + W * .42, sy);
       x.textAlign = "right"; x.fillStyle = C.fg; x.font = `650 22px ${M}`; x.fillText(site.ms == null ? "—" : msTxt(site.ms), W - P, sy); x.textAlign = "left";
