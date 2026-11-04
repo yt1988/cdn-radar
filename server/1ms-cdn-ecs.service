@@ -1,0 +1,23 @@
+[Unit]
+Description=CDN Radar: where Akamai's and CloudFront's DNS sends each big ISP (daily)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=1ms-cdn
+Group=1ms-cdn
+WorkingDirectory=/opt/1ms/cdn
+Environment=OUT=/srv/1ms-data/cdn
+ExecStart=/usr/bin/node /opt/1ms/cdn/server/ecs.mjs
+TimeoutStartSec=15min
+MemoryMax=80M
+Nice=5
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ReadWritePaths=/srv/1ms-data/cdn
+StandardOutput=null
+StandardError=journal

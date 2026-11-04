@@ -41,6 +41,25 @@ export const median = a => { const s = [...a].sort((x, y) => x - y), m = s.lengt
 export const isFar = r => r.d >= 1500 || detoured(r.ms, r.d);
 export const FAST = 30;   // ms: a round trip this short is a nearby edge, whatever the distance says
 
+// How a CDN picks the location: by DNS (its name servers answer by where the lookup comes from: the visitor's resolver,
+// or the client subnet the resolver passes on) or by anycast (one address everywhere; the visitor's network's routing
+// decides). Timed-only CDNs aren't placed, so they have no reason to give.
+export const BY_DNS = new Set(["akamai", "cloudfront", "bunny", "wikimedia"]);
+export const BY_ANYCAST = new Set(["cloudflare", "cfchina", "fastly", "azure"]);
+// Why a far location, given the visitor's resolver as 1ms.dog's own DNS saw it (res: { cc, ecs }) and the visitor's
+// country: a string key, or null when it can't be told
+//   at_any       anycast: the route, not DNS; changing the resolver won't help
+//   at_dns_ecs   by DNS, but the resolver passed on the visitor's subnet: not the resolver's doing
+//   at_dns_far   by DNS, from a resolver in another country that passed nothing on: a nearer resolver should help
+//   at_dns_same  by DNS, from a resolver in the visitor's own country: unlikely the resolver's doing
+export function blame(id, res, cc) {
+  if (BY_ANYCAST.has(id)) return "at_any";
+  if (!BY_DNS.has(id) || !res) return null;
+  if (res.ecs) return "at_dns_ecs";
+  if (!res.cc || !cc) return null;
+  return res.cc !== cc ? "at_dns_far" : "at_dns_same";
+}
+
 // What the results say together: rows = [{ id, code, place, ms, d, near }] (d: km when the visitor's location is
 // known; near: the CDN's nearest location, when its list is known). →
 //   key       the headline: v_good (three in four located ones nearby), v_mixed, v_far, v_noloc, v_none

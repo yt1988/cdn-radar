@@ -270,3 +270,16 @@ details.rblk summary:hover { color: var(--fg); }
 
 /* a CDN page's way to the full test (the home page) */
 .hero .all { margin: 4px 0 0; }
+
+/* a CDN's page: the same test from the Tokyo server, and where the CDN's DNS sends each big ISP */
+.tk, .tkc { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 8px; }
+.tk li { display: grid; grid-template-columns: 44px 1fr; gap: 2px 10px; }
+.tk li .m { grid-column: 2; font-size: 13px; }
+.tkc li { font-size: 13.5px; }
+.ecs-w { overflow-x: auto; margin: 8px 0; }
+.ecs { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.ecs th, .ecs td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.ecs th { font-weight: 600; color: var(--muted); }
+.ecs td .m { font-size: 12px; }
+.ecs tr.you td { background: var(--ink-soft); }
+.art h3 { font-size: 15px; margin: 14px 0 6px; }

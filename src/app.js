@@ -154,13 +154,61 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     const ks = [...asking].filter(k => !(k in PLACES));
     asking.clear();
     if (!ks.length) return;
-    getJ("/places?q=" + encodeURIComponent(ks.join(","))).then(j => { for (const k of ks) PLACES[k] = j[k] || null; redraw(); fillSite(); })
+    getJ("/places?q=" + encodeURIComponent(ks.join(","))).then(j => { for (const k of ks) PLACES[k] = j[k] || null; redraw(); fillSite(); fillTokyo(); fillEcs(); })
       .catch(() => { for (const k of ks) PLACES[k] = null; });
   }
   // where the visitor is: this site's Worker reads Cloudflare's guess from the request (/geo); null when self-hosted
   // as plain files. A precise location, when the visitor asks for one, replaces the coordinates.
   let U = null;
   const geoP = getJ("/geo", { cache: "no-store" }).then(j => { if (j && j.lat != null) U = j; }).catch(() => {});
+
+  /* ---------- a CDN's page: the same test from 1ms.dog's server in Tokyo, and where the CDN's DNS sends each ISP ---------- */
+  // both come from jobs on that server (server/), through this site's Worker (/tokyo, /ecs); a section stays hidden
+  // until its data is there
+  let TK = null, EC = null;
+  const when = ts => new Date(ts).toLocaleString(D.lang, { dateStyle: "medium", timeStyle: "short" });
+  const pct = x => { try { return new Intl.NumberFormat(D.lang, { style: "percent" }).format(x); } catch (e) { return Math.round(x * 100) + "%"; } };
+  const popTxt = (id, code) => { if (!code) return "—"; const p = placeAt(id, code); return [popCode(id, code), p && p[0]].filter(Boolean).filter((s, j, l) => l.indexOf(s) === j).join(" ") || code; };
+  function fillTokyo() {
+    const box = $("#tokyo");
+    if (!box || !TK || !TK.latest) return;
+    const id = D.cdn, items = [];
+    for (const f of [4, 6]) {
+      const k = id + "/" + f, x = TK.latest.r[k], K = TK.keys && TK.keys[k];
+      if (!x) continue;
+      const now = x[1] == null ? `<span class="bad">${esc(t("tk_fail"))}</span>` : esc(x[0] ? t("tk_now", { pop: popTxt(id, x[0]), ms: msTxt(x[1]) }) : t("tk_timed", { ms: msTxt(x[1]) }));
+      let past = "";
+      if (K && K.n) {
+        const share = Object.entries(K.codes).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([c, n]) => `${popTxt(id, c)} ${pct(n / K.n)}`).join(" · ");
+        past = t(share ? "tk_30" : "tk_30_timed", { share, ms: K.med != null ? msTxt(K.med) : "—", ok: pct(K.ok / K.n) });
+      }
+      items.push(`<li><b>IPv${f}</b><span>${now}</span><span class="m">${esc(past)}</span></li>`);
+    }
+    if (!items.length) return;
+    $("#tkList").innerHTML = items.join("");
+    $("#tkAt").textContent = t("tk_at", { time: when(TK.latest.t) });
+    const ch = (TK.changes || []).filter(c => c[1].startsWith(id + "/")).slice(-6).reverse();
+    $("#tkCh").innerHTML = ch.length ? ch.map(([ts, k, a, b]) => `<li>${esc(t("tk_ch", { time: when(ts), fam: "IPv" + k.split("/")[1], from: popTxt(id, a), to: popTxt(id, b) }))}</li>`).join("")
+      : `<li class="m">${esc(t("tk_ch_none"))}</li>`;
+    box.hidden = false;
+  }
+  function fillEcs() {
+    const box = $("#ecs");
+    if (!box || !EC || !EC.cdns || !EC.cdns[D.cdn]) return;
+    const id = D.cdn, res = EC.cdns[id], mine = U && U.asn;
+    // an ISP by its brand, or by its name in the page language where it has one (the Chinese ISPs, in Chinese)
+    const nameOfNet = n => D.lang in n.name ? n.name[D.lang] : n.name.en;
+    $("#ecsT").innerHTML = `<thead><tr><th>${esc(t("ecs_isp"))}</th><th>${esc(t("ecs_cc"))}</th><th>${esc(t("ecs_pop"))}</th></tr></thead><tbody>` +
+      EC.nets.map(n => {
+        const x = res[n.asn] || {}, you = mine && +mine === n.asn;
+        const pop = x.code ? esc(popTxt(id, x.code)) : `<span class="m">${esc(t("ecs_none"))}</span>`;
+        return `<tr${you ? ' class="you"' : ""}><td>${esc(nameOfNet(n))}${you ? " " + tag(t("ecs_you"), "t1") : ""} <span class="m">AS${n.asn}</span></td><td>${esc(country(n.cc))}</td><td>${pop}</td></tr>`;
+      }).join("") + `</tbody>`;
+    $("#ecsAt").textContent = t("ecs_at", { time: when(EC.t) });
+    box.hidden = false;
+  }
+  if ($("#tokyo")) getJ("/tokyo?cdn=" + D.cdn).then(j => { TK = j; fillTokyo(); }).catch(() => {});
+  if ($("#ecs")) Promise.all([getJ("/ecs?cdn=" + D.cdn), geoP]).then(([j]) => { EC = j; fillEcs(); }).catch(() => {});
 
   /* ---------- the map: the visitor and each location answered, on an equirectangular world (lat 84 to -58) ---------- */
   const X = lon => lon + 180, Y = lat => 84 - Math.max(-58, Math.min(84, lat));

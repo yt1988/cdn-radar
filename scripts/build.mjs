@@ -71,12 +71,15 @@ async function loadI18n() {
   return out;
 }
 
+// The CDNs whose DNS picks the location: the Tokyo server asks their name servers for each big ISP (server/ecs.mjs)
+const ECS_CDNS = ["akamai", "cloudfront"];
+
 // Strings only the build uses (the page has them already); the rest go to the browser
 const BUILD_ONLY = new Set(["name", "seo_title", "seo_desc", "seo_kw", "og_sub", "h1", "docs", "lang_label", "faq_h", "h_cdns", "cdns_sub", "c_cdn", "c_pop",
   "c_dist", "c_ms", "h_timed", "st_near", "st_near_s", "st_med", "st_far", "you_k", "precise", "h_site", "site_ph", "site_go", "egress_link", "cost_link",
   "speed_link", "home_link", "share_title", "share_desc", "cdn_title", "cdn_desc", "cdn_desc_list", "cdn_kw", "cdn_h1", "cdn_og", "cdn_title_timed", "cdn_desc_timed", "cdn_kw_timed",
   "cdn_h1_timed", "cdn_og_timed", "cond_note", "cond_ctl", "rules_h", "rules_intro", "rules_mode", "rules_d", "rules_p", "rules_fmt", "rules_tip", "how_h", "how_trace", "how_header",
-  "how_timing", "how_none", "list_h", "list_cn", "more_cdns", "pop_title", "pop_desc", "pop_kw", "pop_h1", "pop_intro", "f_code", "f_city", "f_country",
+  "how_timing", "how_none", "tk_h", "tk_intro", "tk_ch_h", "ecs_h", "ecs_intro", "list_h", "list_cn", "more_cdns", "pop_title", "pop_desc", "pop_kw", "pop_h1", "pop_intro", "f_code", "f_city", "f_country",
   "f_coord", "f_net", "pop_cn", "pop_global", "near_h", "cc_h", "hl_cdns", "hl_pops", "hl_n", "hl_read", "hl_timed"]);
 
 // The map's land: Natural Earth 1:110m (world-atlas), on an equirectangular world from 84°N to 58°S, 1 unit a degree
@@ -192,6 +195,12 @@ ${tiles}
     const cdnArticle = c => {
       const host = new URL(c.url).host, how = !c.read ? "how_none" : c.read === "trace" ? "how_trace" : c.read.startsWith("st:") ? "how_timing" : "how_header";
       let out = `<h2>${esc(T("how_h"))}</h2><p>${esc(T(how, { cdn: cname(c), host, header: c.read ? c.read.slice(c.read.indexOf(":") + 1).replace(/(^|-)([a-z])/g, (m, a, b) => a + b.toUpperCase()) : "" }))}</p>`;
+      // the same test from 1ms.dog's server in Tokyo, and (for the CDNs that pick a location by DNS) where each big ISP
+      // is sent: filled by the page from /tokyo and /ecs (server/), hidden until then
+      out += `<div id="tokyo" hidden><h2>${esc(T("tk_h", { cdn: cname(c) }))}</h2><p>${esc(T("tk_intro", { cdn: cname(c) }))}</p><ul class="tk" id="tkList"></ul>` +
+        `<p class="m" id="tkAt"></p><h3>${esc(T("tk_ch_h"))}</h3><ul class="tkc" id="tkCh"></ul></div>`;
+      if (ECS_CDNS.includes(c.id)) out += `<div id="ecs" hidden><h2>${esc(T("ecs_h", { cdn: cname(c) }))}</h2><p>${esc(T("ecs_intro", { cdn: cname(c) }))}</p>` +
+        `<div class="ecs-w"><table class="ecs" id="ecsT"></table></div><p class="m" id="ecsAt"></p></div>`;
       if (c.list) {
         const all = c.id === "cfchina" ? POPS.cloudflare.filter(p => p[2] === "CN") : POPS[c.list], by = {};
         for (const p of all) (by[p[2]] = by[p[2]] || []).push(p);
@@ -322,7 +331,7 @@ ${tiles}
   }
   files["sitemap.xml"] = `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
     langs.map(([l]) => `  <sitemap><loc>${SITE}/sitemap-${l.toLowerCase()}.xml</loc><lastmod>${POPS.updated}</lastmod></sitemap>`).join("\n") + "\n</sitemapindex>\n";
-  files["robots.txt"] = `User-agent: *\nAllow: /\nDisallow: /r/\nDisallow: /*/r/\nDisallow: /geo\nDisallow: /dns\nDisallow: /places\n\nSitemap: ${SITE}/sitemap.xml\n`;
+  files["robots.txt"] = `User-agent: *\nAllow: /\nDisallow: /r/\nDisallow: /*/r/\nDisallow: /geo\nDisallow: /dns\nDisallow: /places\nDisallow: /tokyo\nDisallow: /ecs\n\nSitemap: ${SITE}/sitemap.xml\n`;
   files["llms.txt"] = `# ${en.app_name} · 1ms.dog
 
 > Free CDN location checker in the browser: for each big CDN, which of its locations (points of presence) answers the

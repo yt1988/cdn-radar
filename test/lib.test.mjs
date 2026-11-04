@@ -3,7 +3,18 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { CDNS, PARSE, placeOf, popMaps, cdnOfName, isCloudflareIP } from "../src/cdns.mjs";
-import { km, floorMs, tierOf, detoured, nearest, missedNearest, summary, encode, decode, sharePath, hostOf } from "../src/lib.mjs";
+import { km, floorMs, tierOf, detoured, nearest, missedNearest, summary, encode, decode, sharePath, hostOf, blame, BY_DNS, BY_ANYCAST } from "../src/lib.mjs";
+
+test("a far location is put down to DNS or to the route by how the CDN picks it", () => {
+  for (const c of CDNS.filter(c => c.read)) assert.ok(BY_DNS.has(c.id) !== BY_ANYCAST.has(c.id), c.id + ": exactly one way of picking");
+  assert.equal(blame("cloudflare", { cc: "US", ecs: null }, "CN"), "at_any");
+  assert.equal(blame("akamai", { cc: "US", ecs: "1.2.3.0/24" }, "CN"), "at_dns_ecs");
+  assert.equal(blame("akamai", { cc: "US", ecs: null }, "CN"), "at_dns_far");
+  assert.equal(blame("cloudfront", { cc: "CN", ecs: null }, "CN"), "at_dns_same");
+  assert.equal(blame("akamai", null, "CN"), null);
+  assert.equal(blame("akamai", { cc: null, ecs: null }, "CN"), null);
+  assert.equal(blame("google", { cc: "US", ecs: null }, "CN"), null);
+});
 
 const pops = popMaps(JSON.parse(await readFile(new URL("../data/pops.json", import.meta.url), "utf8")));
 const places = JSON.parse(await readFile(new URL("../data/places.json", import.meta.url), "utf8"));

@@ -1,0 +1,9 @@
+[Unit]
+Description=CDN Radar: the ISP table once a day, 04:20 UTC
+
+[Timer]
+OnCalendar=*-*-* 04:20:00 UTC
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target

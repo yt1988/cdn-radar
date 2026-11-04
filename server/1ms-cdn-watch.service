@@ -1,0 +1,23 @@
+[Unit]
+Description=CDN Radar: which location of each CDN answers Tokyo, and the round trip (every 10 minutes)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=1ms-cdn
+Group=1ms-cdn
+WorkingDirectory=/opt/1ms/cdn
+Environment=OUT=/srv/1ms-data/cdn
+ExecStart=/usr/bin/node /opt/1ms/cdn/server/watch.mjs
+TimeoutStartSec=8min
+MemoryMax=80M
+Nice=5
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ReadWritePaths=/srv/1ms-data/cdn
+StandardOutput=null
+StandardError=journal

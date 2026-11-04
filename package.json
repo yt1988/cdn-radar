@@ -10,7 +10,8 @@
     "verify": "node scripts/verify.mjs",
     "assets": "node scripts/assets.mjs",
     "dev": "npx wrangler dev --port 8800",
-    "deploy": "node scripts/build.mjs && npx wrangler deploy"
+    "deploy": "node scripts/build.mjs && npx wrangler deploy",
+    "ecs-nets": "node scripts/ecs-nets.mjs"
   },
   "devDependencies": {
     "@resvg/resvg-js": "^2.6.2",

@@ -4,6 +4,10 @@
 //                         distances start there. Never stored or logged; not cached.
 //   /places?q=<cdn>:<code>,…  where the codes a CDN's answers gave are (IATA codes, Akamai's cities): { "<cdn>:<code>":
 //                         [city, cc, lat, lon] } for the ones known (data/places.json, which the page doesn't load)
+//   /tokyo?cdn=<id>       the same test from 1ms.dog's server in Tokyo, every 10 minutes (server/watch.mjs): that CDN's
+//                         latest run, 30 days summed up and its changes of location
+//   /ecs?cdn=<id>         where that CDN's DNS sends each big ISP, asked once a day from Tokyo (server/ecs.mjs)
+//                         Both are the server's files (data.1ms.dog), cached here; a 502 when they can't be had
 //   /r/<code>, /<lang>/r/<code>   a shared result: that language's page with the locations in its title (what chat
 //                         apps show as the link's preview), not indexed; the page itself reads the code and shows the
 //                         result (src/lib.mjs); a code it can't read is a 404
@@ -34,6 +38,9 @@ export default {
     if (url.pathname === "/geo") return geo(req);
     if (url.pathname === "/dns") return dns(url);
     if (url.pathname === "/places") return places(url);
+    if (url.pathname === "/tokyo") return fromServer("watch/summary.json", 300, url, (j, id) =>
+      ({ t: j.t, latest: { t: j.latest.t, r: pick(j.latest.r, id) }, keys: pick(j.keys, id), changes: j.changes.filter(c => c[1].startsWith(id + "/")) }));
+    if (url.pathname === "/ecs") return fromServer("ecs/latest.json", 3600, url, (j, id) => ({ t: j.t, nets: j.nets, cdns: { [id]: j.cdns[id] } }));
     const sp = sharePath(url.pathname);
     if (sp && sp.slug in STR && env.ASSETS) return shared(req, env, url, sp);
     return notFound(req);
@@ -51,6 +58,21 @@ function geo(req) {
     asn: cf.asn || null, org: cf.asOrganization || null, colo: cf.colo || null };
   return new Response(JSON.stringify(body), { headers: { "content-type": "application/json; charset=utf-8", "cache-control": "private, no-store",
     "x-robots-tag": "noindex" } });
+}
+
+// The Tokyo server's results (server/), published read-only at data.1ms.dog; only the asked CDN's part goes to the page
+const DATA_URL = "https://data.1ms.dog:2083/cdn/";
+const pick = (o, id) => Object.fromEntries(Object.entries(o || {}).filter(([k]) => k.startsWith(id + "/")));
+async function fromServer(path, ttl, url, part) {
+  const id = url.searchParams.get("cdn"), head = { "content-type": "application/json; charset=utf-8", "access-control-allow-origin": "*", "x-robots-tag": "noindex" };
+  if (!BY[id]) return new Response("{}", { status: 400, headers: head });
+  try {
+    const r = await fetch(DATA_URL + path, { cf: { cacheTtl: ttl, cacheEverything: true } });
+    if (!r.ok) throw new Error(r.status);
+    return new Response(JSON.stringify(part(await r.json(), id)), { headers: { ...head, "cache-control": `public, max-age=${ttl}` } });
+  } catch (e) {
+    return new Response("{}", { status: 502, headers: { ...head, "cache-control": "public, max-age=60" } });
+  }
 }
 
 // Where codes are, for the page: at most 40 at a time; the CDNs that publish their lists the page has already.
