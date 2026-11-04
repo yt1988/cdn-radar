@@ -1,4 +1,4 @@
-// 1ms-cdn-ecs: once a day, where the CDNs that pick a location by DNS (Akamai, CloudFront) send the users of each big
+// 1ms-cdn-ecs: once a day, where a CDN that picks its location by DNS (CloudFront) sends the users of each big
 // ISP. For every ISP in data/ecs-nets.json it asks the CDN's own name servers for the test host, walking the CNAMEs and
 // delegations itself over UDP 53, with one of that ISP's /24s as the client subnet (EDNS Client Subnet, RFC 7871): the
 // answer the ISP's own resolver would get. Then it asks each address it got, once, over HTTPS with the host's name,
@@ -14,7 +14,9 @@ import { readFile } from "node:fs/promises";
 import { BY } from "../src/cdns.mjs";
 import { OUT, get, readPop, writeJSON, wait } from "./common.mjs";
 
-const TESTS = ["akamai", "cloudfront"];
+// Akamai is left out: its name servers answer every subnet alike (scope 0) unless the resolver is one it lists, so
+// from here every ISP came out Tokyo (2026-11-04)
+const TESTS = ["cloudfront"];
 const QPS_GAP = 100;   // at most 10 queries a second, to anyone
 const NETS = JSON.parse(await readFile(new URL("../data/ecs-nets.json", import.meta.url), "utf8"));
 

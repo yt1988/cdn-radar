@@ -1,5 +1,5 @@
 [Unit]
-Description=CDN Radar: where Akamai's and CloudFront's DNS sends each big ISP (daily)
+Description=CDN Radar: where CloudFront's DNS sends each big ISP (daily)
 After=network-online.target
 Wants=network-online.target
 

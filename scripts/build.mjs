@@ -72,7 +72,7 @@ async function loadI18n() {
 }
 
 // The CDNs whose DNS picks the location: the Tokyo server asks their name servers for each big ISP (server/ecs.mjs)
-const ECS_CDNS = ["akamai", "cloudfront"];
+const ECS_CDNS = ["cloudfront"];   // Akamai answers every subnet alike to a resolver it doesn't list (server/ecs.mjs)
 
 // Strings only the build uses (the page has them already); the rest go to the browser
 const BUILD_ONLY = new Set(["name", "seo_title", "seo_desc", "seo_kw", "og_sub", "h1", "docs", "lang_label", "faq_h", "h_cdns", "cdns_sub", "c_cdn", "c_pop",

@@ -8,7 +8,7 @@ directories and the user follow the allocation in 1ms-shell `docs/processes.md`.
 | Service | When | What | Output |
 |---|---|---|---|
 | `1ms-cdn-watch` | Every 10 minutes, at minute 4 | The page's own test from Tokyo, over IPv4 and IPv6. It records which location of each CDN answers and the round trip to it. | `watch/days/<date>.json` (kept 400 days); `watch/summary.json` (the last run, the last 30 days, the last 50 location changes) |
-| `1ms-cdn-ecs` | Daily, 04:20 UTC | Asks Akamai's and CloudFront's own name servers for the test host, once per big ISP. Each query carries one of that ISP's /24s as the client subnet (`data/ecs-nets.json`). Then it asks each edge address it got which location it is: one HTTPS request with the host's name. | `ecs/latest.json`; `ecs/days/<date>.json` |
+| `1ms-cdn-ecs` | Daily, 04:20 UTC | Asks CloudFront's own name servers (Akamai answers every subnet alike to a resolver it doesn't list, so it's left out) for the test host, once per big ISP. Each query carries one of that ISP's /24s as the client subnet (`data/ecs-nets.json`). Then it asks each edge address it got which location it is: one HTTPS request with the host's name. | `ecs/latest.json`; `ecs/days/<date>.json` |
 
 - Both jobs read each CDN's location with the page's own rules (`src/cdns.mjs`), so the server and the browser can't
   disagree on what an answer says.
