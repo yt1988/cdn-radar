@@ -60,6 +60,8 @@ export function blame(id, res, cc, at) {
   if (BY_ANYCAST.has(id)) return "at_any";
   if (!BY_DNS.has(id) || !res) return null;
   if (res.ecs) return "at_dns_ecs";
+  // the first lookups passed no subnet and later ones did: which of them the CDN's answer came from can't be told
+  if (res.ecsLater) return null;
   if (!res.cc || !cc) return null;
   if (res.cc === cc) return "at_dns_same";
   return at && at === res.cc ? "at_dns_far" : "at_dns_split";

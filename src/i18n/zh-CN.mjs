@@ -101,7 +101,7 @@ export default {
   ecs_none: "没查到",
   at_res: "你的 DNS 服务器：{org}，在{country}；{ecs}。",
   at_ecs_yes: "查询时带上了你的网段",
-  at_ecs_no: "查询时没带你的网段",
+  at_ecs_no: "查询时没带你的网段", at_ecs_some: "最先到的查询没带你的网段，稍后的几条带了",
   at_dns_far: "{cdn} 按 DNS 服务器的位置分配节点。你的 DNS 服务器在{country}，又没带上你的网段，所以你被分到了那边。换成离你近的 DNS（比如运营商自带的），大概能分到更近的节点。",
   at_dns_ecs: "{cdn} 按 DNS 分配节点，这次查询带上了你的网段，所以远节点不是 DNS 造成的，而是 {cdn} 或你的运营商选的。",
   at_dns_same: "{cdn} 按 DNS 服务器的位置分配节点。你的 DNS 服务器和你在同一个国家/地区，所以远节点不太可能是 DNS 造成的。",

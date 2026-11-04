@@ -101,7 +101,7 @@ export default {
   ecs_none: "Keine Antwort",
   at_res: "Dein DNS-Server: {org} ({country}); {ecs}.",
   at_ecs_yes: "er hat deinen Adressblock mitgeschickt",
-  at_ecs_no: "er hat deinen Adressblock nicht mitgeschickt",
+  at_ecs_no: "er hat deinen Adressblock nicht mitgeschickt", at_ecs_some: "die ersten Anfragen haben deinen Adressblock nicht mitgeschickt, spätere schon",
   at_dns_far: "{cdn} wählt den Standort danach, wo dein DNS-Server steht. Deiner steht in einem anderen Land ({country}) und schickt deinen Adressblock nicht mit, deshalb wurdest du dorthin geschickt. Mit einem DNS-Server in deiner Nähe, etwa dem deines Anbieters, bekommst du wahrscheinlich einen näheren Standort.",
   at_dns_ecs: "{cdn} wählt den Standort per DNS, und diese Anfrage enthielt deinen Adressblock. Am DNS liegt die Entfernung also nicht: {cdn} oder dein Anbieter hat so entschieden.",
   at_dns_same: "{cdn} wählt den Standort danach, wo dein DNS-Server steht. Deiner steht im selben Land bzw. derselben Region wie du, daher liegt die Entfernung wahrscheinlich nicht am DNS.",

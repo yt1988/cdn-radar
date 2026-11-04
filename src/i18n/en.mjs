@@ -101,7 +101,7 @@ export default {
   ecs_none: "No answer",
   at_res: "Your DNS resolver: {org} ({country}); {ecs}.",
   at_ecs_yes: "it passed on your address block",
-  at_ecs_no: "it didn't pass on your address block",
+  at_ecs_no: "it didn't pass on your address block", at_ecs_some: "the first lookups didn't pass on your address block, later ones did",
   at_dns_far: "{cdn} picks a data center by where your DNS resolver is. Yours is in another country ({country}) and doesn't pass on your address block, so you were sent there. A resolver closer to you, such as your provider's, will likely get you a closer data center.",
   at_dns_ecs: "{cdn} picks a data center through DNS, and this lookup passed on your address block, so DNS isn't why it's far: {cdn} or your provider chose it.",
   at_dns_same: "{cdn} picks a data center by where your DNS resolver is. Yours is in the same country or region as you, so DNS is unlikely to be why it's far.",

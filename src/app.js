@@ -321,15 +321,18 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     const tok = Array.from(crypto.getRandomValues(new Uint8Array(12)), b => (b % 36).toString(36)).join("");
     try {
       const j = await getJ(`https://${tok}-c.l.1ms.dog:2053/`, { cache: "no-store", signal: ctl.signal });
-      // the lookups that answered the browser come first; a resolver's own follow-ups (other paths, a prefetch, a
-      // second pool passing a subnet) come a few hundred ms later and aren't what the CDN's answer was based on
+      // the lookups that answered the browser come first; more can come a few hundred ms later, often from other
+      // addresses of the same ISP (other paths, a prefetch), sometimes passing a subnet the first ones didn't (China
+      // Unicom, 2026-11-04). The server waits for those too (600 ms after the first); the first ones say who answered.
       const all = (j.hits || []).filter(h => h.zone === "l"), early = all.filter(h => h.ms <= 150), hits = early.length ? early : all;
       if (!hits.length || ctl.signal.aborted) return;
-      // a resolver pool can ask from several addresses: the country most of them are in, and a subnet if any passed one
+      // a resolver pool can ask from several addresses: the country most of them are in
       const by = {};
       for (const h of hits) if (h.cc) by[h.cc] = (by[h.cc] || 0) + 1;
       const cc = Object.keys(by).sort((a, b) => by[b] - by[a])[0] || null, h = hits.find(x => x.cc === cc) || hits[0];
-      RES = { cc, org: h.org || (h.asn ? "AS" + h.asn : ""), ecs: (hits.find(x => x.ecs) || {}).ecs || null, geo: j.geo || "" };
+      // a subnet the first lookups passed on; or only later ones (then which one the CDN's answer used can't be told)
+      const ecs = (hits.find(x => x.ecs) || {}).ecs || null;
+      RES = { cc, org: h.org || (h.asn ? "AS" + h.asn : ""), ecs, ecsLater: !ecs && all.some(x => x.ecs), geo: j.geo || "" };
       redraw();
     } catch (e) {}
   }
@@ -340,7 +343,7 @@ import { probe, dns, once, readPop } from "./probe.mjs";
   }
   // the resolver itself, as a finding (with DB-IP's credit, which its license asks for next to what it placed)
   const resItem = () => !RES || SHOWN ? "" : `<li class="ok"><svg viewBox="0 0 16 16" aria-hidden="true">${ICON.ok}</svg><span>${esc(t("at_res", {
-    org: RES.org || "—", country: RES.cc ? country(RES.cc) : "—", ecs: t(RES.ecs ? "at_ecs_yes" : "at_ecs_no") }))} <a class="m" href="https://db-ip.com" target="_blank" rel="noopener" title="${esc(RES.geo)}">DB-IP</a></span></li>`;
+    org: RES.org || "—", country: RES.cc ? country(RES.cc) : "—", ecs: t(RES.ecs ? "at_ecs_yes" : RES.ecsLater ? "at_ecs_some" : "at_ecs_no") }))} <a class="m" href="https://db-ip.com" target="_blank" rel="noopener" title="${esc(RES.geo)}">DB-IP</a></span></li>`;
   const FINDS0 = $("#finds") ? $("#finds").innerHTML : "";   // the findings' placeholders, as the page came
   function hero(final) {
     const rows = LIST.map(c => rowOf(c.id)).filter(Boolean);

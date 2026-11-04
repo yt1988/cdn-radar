@@ -16,6 +16,9 @@ test("a far location is put down to DNS or to the route by how the CDN picks it"
   assert.equal(blame("akamai", { cc: "US", ecs: null }, "CN"), "at_dns_split");
   assert.equal(blame("cloudfront", { cc: "CN", ecs: null }, "CN", "US"), "at_dns_same");
   assert.equal(blame("akamai", null, "CN"), null);
+  // the first lookups without a subnet, later ones with one (China Unicom, 2026-11-04): no verdict for DNS
+  assert.equal(blame("akamai", { cc: "US", ecs: null, ecsLater: true }, "CN", "US"), null);
+  assert.equal(blame("cloudflare", { cc: "US", ecs: null, ecsLater: true }, "CN"), "at_any");
   assert.equal(blame("akamai", { cc: null, ecs: null }, "CN"), null);
   assert.equal(blame("google", { cc: "US", ecs: null }, "CN"), null);
 });

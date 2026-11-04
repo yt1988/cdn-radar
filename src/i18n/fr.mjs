@@ -101,7 +101,7 @@ export default {
   ecs_none: "Pas de réponse",
   at_res: "Votre serveur DNS : {org} ({country}) ; {ecs}.",
   at_ecs_yes: "il a transmis votre bloc d'adresses",
-  at_ecs_no: "il n'a pas transmis votre bloc d'adresses",
+  at_ecs_no: "il n'a pas transmis votre bloc d'adresses", at_ecs_some: "les premières requêtes n'ont pas transmis votre bloc d'adresses, d'autres plus tard si",
   at_dns_far: "{cdn} choisit le datacenter selon l'emplacement de votre serveur DNS. Le vôtre est dans un autre pays ({country}) et ne transmet pas votre bloc d'adresses : vous avez donc été envoyé là-bas. Avec un DNS plus proche, comme celui de votre fournisseur, vous obtiendrez probablement un datacenter plus proche.",
   at_dns_ecs: "{cdn} choisit le datacenter par le DNS, et cette requête a transmis votre bloc d'adresses : la distance ne vient donc pas du DNS, c'est {cdn} ou votre fournisseur qui l'a choisie.",
   at_dns_same: "{cdn} choisit le datacenter selon l'emplacement de votre serveur DNS. Le vôtre est dans le même pays ou la même région que vous : le DNS n'explique probablement pas la distance.",
