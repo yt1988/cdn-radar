@@ -129,7 +129,8 @@ export async function build() {
     // ones timed only as tiles). On a CDN's page the verdict and the numbers are that CDN's: where it serves you from,
     // how far, how long; its row comes first, and the others follow for comparison.
     const toolMain = ({ h1, intro, first }) => {
-      const order = first ? [BY[first], ...CDNS.filter(c => c.id !== first)] : CDNS;
+      // a CDN page is about that CDN only: the others, and the website check, are the home page's
+      const order = first ? [BY[first]] : CDNS;
       const rows = order.filter(c => c.read).map(c => "      " + rowHTML(c, c.id === first)).join("\n");
       const tiles = order.filter(c => !c.read).map(c => "        " + tileHTML(c, c.id === first)).join("\n");
       return `    <section class="hero card${first ? " one" : ""}">
@@ -141,6 +142,7 @@ export async function build() {
           : stat("stNear", T("st_near"), T("st_near_s")) + stat("stMed", T("st_med")) + stat("stFar", T("st_far"))}
         <div class="stat you"><span class="k">${esc(T("you_k"))}<button class="lnk" id="precise" type="button">${esc(T("precise"))}</button></span><b id="you"><i class="skl"></i></b><span class="s" id="youNet">&nbsp;</span></div>
       </div>
+      ${first ? `<p class="all"><a class="btn sm" href="${pathOf(slug)}">${esc(fill(T("all_cta"), { n: CDNS.length }))}</a></p>` : ""}
       <ul class="finds" id="finds">${first ? `<li class="wait"><i class="skl"></i></li>` : `<li class="wait"><i class="skl"></i></li><li class="wait"><i class="skl"></i></li><li class="wait"><i class="skl"></i></li>`}</ul>
       <div class="bar">
         <div class="prog" id="prog"><i></i></div>
@@ -149,19 +151,19 @@ export async function build() {
       </div>
     </section>
 
-    <section class="site card">
+    ${first ? "" : `<section class="site card">
       <form class="site-f" id="siteForm"><label class="site-k" for="siteIn">${esc(T("h_site"))}</label><input id="siteIn" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${esc(T("site_ph"))}"><button class="btn pri" type="submit">${esc(T("site_go"))}</button></form>
       <p class="site-res" id="siteRes" hidden></p>
-    </section>
+    </section>`}
 
     <section class="cdns card" aria-labelledby="cdnsT">
-      <div class="cdns-h"><h2 id="cdnsT">${esc(T("h_cdns"))}</h2><span class="sub">${esc(T("cdns_sub"))}</span></div>
-      <div class="cr ch"><span>${esc(T("c_cdn"))}</span><span>${esc(T("c_pop"))}</span><span>${esc(T("c_dist"))}</span><span>${esc(T("c_ms"))}</span></div>
+      <div class="cdns-h"><h2 id="cdnsT">${esc(T(first ? "h_detail" : "h_cdns"))}</h2><span class="sub">${esc(T("cdns_sub"))}</span></div>
+      ${rows ? `<div class="cr ch"><span>${esc(T("c_cdn"))}</span><span>${esc(T("c_pop"))}</span><span>${esc(T("c_dist"))}</span><span>${esc(T("c_ms"))}</span></div>` : ""}
 ${rows}
-      <h3 class="tt-h">${esc(T("h_timed"))}</h3>
+      ${tiles ? `<h3 class="tt-h">${esc(T("h_timed"))}</h3>
       <div class="tts">
 ${tiles}
-      </div>
+      </div>` : ""}
       <p class="links">${linkOut("egressLink", "egress_link")}${linkOut("speedLink", "speed_link")}${linkOut("homeLink", "home_link")}${linkOut("costLink", "cost_link")}</p>
     </section>`;
     };

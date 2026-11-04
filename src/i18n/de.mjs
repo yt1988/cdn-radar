@@ -45,6 +45,8 @@ export default {
   pv_fail_sub: "Vielleicht blockiert eine Browser-Erweiterung oder dein Netz es – dann laden Websites, die es nutzen, bei dir womöglich auch nicht.",
   pv_rank: "Platz {rank} von {n} CDNs nach Latenz.",
 
+  all_cta: "Alle {n} CDNs testen und sehen, welches am nächsten ist",
+  h_detail: "Messdetails",
   h_cdns: "Von wo dich jedes CDN bedient",
   cdns_sub: "Den Standort verrät die Antwort des jeweiligen CDN selbst. Fahr mit der Maus über eine Latenz, um das Minimum für diese Entfernung zu sehen.",
   c_cdn: "CDN", c_pop: "Standort", c_dist: "Entfernung", c_ms: "Latenz",

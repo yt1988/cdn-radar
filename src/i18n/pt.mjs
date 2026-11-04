@@ -45,6 +45,8 @@ export default {
   pv_fail_sub: "Uma extensão do navegador ou a sua rede pode estar bloqueando, então os sites que usam essa CDN também podem não abrir para você.",
   pv_rank: "{rank}º lugar entre {n} CDNs em latência.",
 
+  all_cta: "Testar as {n} CDNs e ver qual está mais perto",
+  h_detail: "Detalhes da medição",
   h_cdns: "De onde cada CDN atende você",
   cdns_sub: "O data center vem da própria resposta de cada CDN. Passe o mouse sobre uma latência para ver o mínimo que a distância permite.",
   c_cdn: "CDN", c_pop: "Data center", c_dist: "Distância", c_ms: "Latência",

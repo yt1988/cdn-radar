@@ -185,7 +185,8 @@ import { probe, dns, once, readPop } from "./probe.mjs";
 
   /* ---------- results ---------- */
   const ROW = Object.fromEntries($$(".cr[data-c], .tt[data-c]").map(r => [r.dataset.c, r]));
-  const LIST = D.kind === "pop" ? [BY[D.cdn]] : CDNS;
+  // a CDN or location page tests that one CDN; the home page tests them all (1ms-shell tool-contract: subpages)
+  const LIST = D.kind === "pop" || D.kind === "cdn" ? [BY[D.cdn]] : CDNS;
   let R = {};            // results so far, by CDN id: { ms, code, err, loc? }
   let SHOWN = null;      // a shared result being shown: its visitor location (or null)
   let SITE = null;       // the site check's result

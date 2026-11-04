@@ -45,6 +45,8 @@ export default {
   pv_fail_sub: "Puede que una extensión del navegador o tu red la bloquee, así que las webs que la usan quizá tampoco te carguen.",
   pv_rank: "Puesto {rank} de {n} CDN por latencia.",
 
+  all_cta: "Probar las {n} CDN y ver cuál está más cerca",
+  h_detail: "Detalle de la medición",
   h_cdns: "Desde dónde te atiende cada CDN",
   cdns_sub: "El centro de datos sale de la propia respuesta de cada CDN. Pasa el ratón por una latencia para ver lo más rápido que permite la distancia.",
   c_cdn: "CDN", c_pop: "Centro de datos", c_dist: "Distancia", c_ms: "Latencia",

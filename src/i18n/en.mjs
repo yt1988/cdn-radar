@@ -45,6 +45,8 @@ export default {
   pv_fail_sub: "A browser extension or your network may be blocking it, so sites that use it may not load for you either.",
   pv_rank: "Number {rank} of {n} CDNs by latency.",
 
+  all_cta: "Test all {n} CDNs and see which is closest",
+  h_detail: "Measurement",
   h_cdns: "Where each CDN serves you from",
   cdns_sub: "Each data center is read from the CDN's own response. Hover over a latency to see the fastest that distance allows.",
   c_cdn: "CDN", c_pop: "Data center", c_dist: "Distance", c_ms: "Latency",

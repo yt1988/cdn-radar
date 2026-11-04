@@ -45,6 +45,8 @@ export default {
   pv_fail_sub: "可能被浏览器扩展或你的网络拦了。用它的网站，你可能也打不开。",
   pv_rank: "延迟在 {n} 家 CDN 里排第 {rank}。",
 
+  all_cta: "测全部 {n} 家 CDN，看哪家离你最近",
+  h_detail: "测量明细",
   h_cdns: "每家 CDN 把你分到了哪里",
   cdns_sub: "节点信息来自各家 CDN 自己的响应。鼠标停在延迟上，可以看到按距离算出的理论最低值。",
   c_cdn: "CDN", c_pop: "节点", c_dist: "距离", c_ms: "延迟",

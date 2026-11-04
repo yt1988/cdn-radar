@@ -267,3 +267,6 @@ details.rblk summary:hover { color: var(--fg); }
 }
 /* the narrowest phones: timed-only tiles two to a row, so a long name (Wangsu (CDNetworks)) fits */
 @media (max-width: 420px) { .tts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* a CDN page's way to the full test (the home page) */
+.hero .all { margin: 4px 0 0; }

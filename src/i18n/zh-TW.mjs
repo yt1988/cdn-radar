@@ -45,6 +45,8 @@ export default {
   pv_fail_sub: "可能被瀏覽器擴充功能或你的網路擋掉了。使用它的網站，你可能也打不開。",
   pv_rank: "延遲在 {n} 家 CDN 中排第 {rank}。",
 
+  all_cta: "測全部 {n} 家 CDN，看哪家離你最近",
+  h_detail: "測量明細",
   h_cdns: "每家 CDN 把你分配到哪裡",
   cdns_sub: "節點資訊來自各家 CDN 自己的回應。把滑鼠移到延遲上，可以看到依距離算出的理論最低值。",
   c_cdn: "CDN", c_pop: "節點", c_dist: "距離", c_ms: "延遲",
