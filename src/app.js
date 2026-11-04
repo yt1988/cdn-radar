@@ -491,7 +491,7 @@ import { probe, dns, once, readPop } from "./probe.mjs";
 
   // The share component, with its version: /assets/ is cached for a week, and a page must not get last version's
   // copy (no received() before version 2, a stale cache fixed in 3)
-  const SHARE_JS = "/assets/share/share.js?v=7";
+  const SHARE_JS = "/assets/share/share.js?v=8";
 
   /* ---------- a shared result ---------- */
   // Opening /r/<code> shows that result as the test drew it, and doesn't test until the visitor asks
