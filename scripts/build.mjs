@@ -311,7 +311,7 @@ ${tiles}
         .replace(/(<(\w+)\b[^>]*\sdata-i="(\w+)"[^>]*>)([^<]*)(<\/\2>)/g, (m, open, tag, k, inner, close) => open + esc(T(k)) + close)
         .replace(/\{\{a:(\w+)\}\}/g, (m, k) => esc(T(k)))
         .replace("{{lang}}", lang).replace("{{pathsAttr}}", esc(JSON.stringify(paths))).replace("{{rootAttr}}", slug ? "" : " data-root")
-        .replace("{{prepaint}}", PREPAINT).replace("{{head}}", head).replace("{{css}}", F.css).replace("{{js}}", F.js).replace("{{strings}}", sName)
+        .replace("{{prepaint}}", PREPAINT).replace("{{head}}", head).replace("{{css}}", F.css).replace("{{js}}", F.js).replace("{{strings}}", sName).replace("{{pops}}", F.pops)
         .replace(pg.kind !== "home" ? ` aria-current="page"` : "{{none}}", "").split("{{homeHref}}").join(pathOf(slug)).replace("{{langOpts}}", langOpts)
         .replace("{{main}}", () => pg.main).replace("{{article}}", () => pg.article || "")
         .replace("{{helpNav}}", () => helpNav).replace("{{helpC}}", () => helpC).replace("{{rules}}", () => pg.kind === "pop" ? "" : rulesHTML)

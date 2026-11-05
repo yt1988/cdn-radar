@@ -342,8 +342,8 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     return k ? t(k, { cdn: cdnName(id), country: RES && RES.cc ? country(RES.cc) : "" }) : "";
   }
   // the resolver itself, as a finding (with DB-IP's credit, which its license asks for next to what it placed)
-  const resItem = () => !RES || SHOWN ? "" : `<li class="ok"><svg viewBox="0 0 16 16" aria-hidden="true">${ICON.ok}</svg><span>${esc(t("at_res", {
-    org: RES.org || "—", country: RES.cc ? country(RES.cc) : "—", ecs: t(RES.ecs ? "at_ecs_yes" : RES.ecsLater ? "at_ecs_some" : "at_ecs_no") }))} <a class="m" href="https://db-ip.com" target="_blank" rel="noopener" title="${esc(RES.geo)}">DB-IP</a></span></li>`;
+  const resItem = () => !RES || SHOWN ? null : ["ok", `${esc(t("at_res", {
+    org: RES.org || "—", country: RES.cc ? country(RES.cc) : "—", ecs: t(RES.ecs ? "at_ecs_yes" : RES.ecsLater ? "at_ecs_some" : "at_ecs_no") }))} <a class="m" href="https://db-ip.com" target="_blank" rel="noopener" title="${esc(RES.geo)}">DB-IP</a>`];
   const FINDS0 = $("#finds") ? $("#finds").innerHTML : "";   // the findings' placeholders, as the page came
   function hero(final) {
     const rows = LIST.map(c => rowOf(c.id)).filter(Boolean);
@@ -378,8 +378,28 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     // "nothing stands out" only once everything is in
     if (!final && !s.findings.length) { $("#finds").innerHTML = FINDS0; return; }
     const items = s.findings.length ? s.findings : [{ kind: "ok", key: "f_none" }];
-    $("#finds").innerHTML = items.map(x => `<li class="${x.kind}"><svg viewBox="0 0 16 16" aria-hidden="true">${ICON[x.kind]}</svg><span>${esc(x.key === "f_none" ? t("f_none") : finding(x))}</span></li>`).join("")
-      + (final ? resItem() : "");
+    setFinds([...items.map(x => [x.kind, esc(x.key === "f_none" ? t("f_none") : finding(x))]), final && resItem()]);
+  }
+
+  // The findings, updated in place: a line that stays keeps its element and only its words change, so the list doesn't
+  // paint itself anew each time a CDN answers. items: [kind, html], falsy ones skipped
+  function setFinds(items) {
+    const ul = $("#finds");
+    if (!ul) return;
+    const lis = [...ul.children];
+    items = items.filter(Boolean);
+    items.forEach(([kind, html], i) => {
+      let li = lis[i];
+      if (!li || li.classList.contains("wait")) {
+        const n = document.createElement("li");
+        n.innerHTML = `<svg viewBox="0 0 16 16" aria-hidden="true"></svg><span></span>`;
+        if (li) li.replaceWith(n); else ul.append(n);
+        li = n;
+      }
+      if (li.className !== kind) { li.className = kind; li.firstChild.innerHTML = ICON[kind]; }
+      if (li.lastChild.dataset.h !== html) { li.lastChild.innerHTML = html; li.lastChild.dataset.h = html; }
+    });
+    for (const li of lis.slice(items.length)) li.remove();
   }
 
   // A CDN's page: its own verdict as soon as it has answered. Where it serves you from, how far, how long, and what
@@ -415,8 +435,7 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     // next to the others, once they are all in
     const all = CDNS.filter(c => R[c.id] && R[c.id].ms != null);
     if (final && x.ms != null && all.length > 1) out.push(["ok", t("pv_rank", { rank: all.filter(c => R[c.id].ms < x.ms).length + 1, n: all.length })]);
-    if (final || out.length) $("#finds").innerHTML = (out.length ? out : [["ok", t("f_none")]]).map(([k, s]) => `<li class="${k}"><svg viewBox="0 0 16 16" aria-hidden="true">${ICON[k]}</svg><span>${esc(s)}</span></li>`).join("")
-      + (final ? resItem() : "");
+    if (final || out.length) setFinds([...(out.length ? out : [["ok", t("f_none")]]).map(([k, s]) => [k, esc(s)]), final && resItem()]);
   }
 
   // the visitor: city and country, and their network
@@ -454,7 +473,9 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     $("#prog") && $("#prog").classList.remove("end");
     redraw(); progress();
     askResolver(ctl);
-    await popsP;
+    // the probes don't wait for the locations list (preloaded in the head): a row that answers before it is in gets
+    // its place on the redraw when it comes
+    popsP.then(() => { if (!ctl.signal.aborted) redraw(); });
     geoP.then(() => { if (!ctl.signal.aborted) redraw(); });
     // a few at a time: twenty connections at once would queue behind each other on a slow link
     // a CDN's page tests its own CDN first, so its verdict comes first
