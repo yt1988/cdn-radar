@@ -85,16 +85,22 @@ test("the verdict and what stands out", () => {
   assert.equal(s1.key, "v_good");
   assert.deepEqual([s1.near, s1.far, s1.located], [3, 1, 4]);
   assert.equal(s1.farthest.id, "akamai");
-  assert.deepEqual(s1.findings.map(f => f.key), ["f_far", "f_fast"]);
+  // the far one is in the numbers; the findings only name what the numbers don't say
+  assert.deepEqual(s1.findings.map(f => f.key), ["f_fast"]);
+  assert.deepEqual(s1.farIds, ["akamai"]);
   assert.equal(summary([near, far]).key, "v_mixed");
   assert.equal(summary([far, { ...far, id: "fastly" }, { ...far, id: "azure" }, near]).key, "v_far");
-  assert.equal(summary([far, { ...far, id: "fastly", d: 9000 }, { ...far, id: "azure", d: 8000 }, near]).findings.find(f => f.key === "f_more").n, 1);
+  assert.deepEqual(summary([far, { ...far, id: "fastly", d: 9000 }, { ...far, id: "azure", d: 8000 }, near]).farIds, ["akamai", "fastly", "azure"]);
+  // far though a location near the visitor exists: one line for all of them
+  const missed = { ...far, id: "bunny", near: ["JP", ["Tokyo", "JP"], 20] };
+  assert.deepEqual(summary([missed, { ...missed, id: "cloudflare" }, far]).findings[0], { kind: "warn", key: "f_near", ids: ["bunny", "cloudflare"] });
   // near, but a round trip far beyond what 20 km needs: the path goes a long way round
-  assert.equal(summary([{ ...near, ms: 180 }]).findings[0].key, "f_slowpath");
+  assert.equal(summary([{ ...near, ms: 180 }]).findings[0].key, "f_detour");
   assert.equal(summary([{ ...near, d: null }]).key, "v_noloc");
   const none = summary([{ id: "google", ms: null }]);
   assert.equal(none.key, "v_none");
   assert.deepEqual(none.findings, [{ kind: "bad", key: "f_fail", ids: ["google"] }]);
+  assert.deepEqual(none.farIds, []);
   assert.equal(summary([near, { id: "alibaba", ms: 6, d: null }]).med, 7);
 });
 

@@ -147,6 +147,7 @@ export async function build() {
       </div>
       ${first ? `<p class="all"><a class="btn sm" href="${pathOf(slug)}">${esc(fill(T("all_cta"), { n: CDNS.length }))}</a></p>` : ""}
       <ul class="finds" id="finds">${first ? `<li class="wait"><i class="skl"></i></li>` : `<li class="wait"><i class="skl"></i></li><li class="wait"><i class="skl"></i></li><li class="wait"><i class="skl"></i></li>`}</ul>
+      <p class="res m" id="resLine" hidden></p>
       <div class="bar">
         <div class="prog" id="prog"><i></i></div>
         <span class="prog-t" id="progTxt">&nbsp;</span>

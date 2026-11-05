@@ -241,7 +241,8 @@ import { probe, dns, once, readPop } from "./probe.mjs";
   let SUB = "";          // the verdict's second line, for the share card (the page shows it in the numbers)
   const me = () => SHOWN ? SHOWN.where : U;
   const listFmt = (() => { try { return new Intl.ListFormat(D.lang, { type: "conjunction" }); } catch (e) { return { format: a => a.join(", ") }; } })();
-  const names = ids => listFmt.format(ids.map(cdnName));
+  // Chinese and Japanese: names that are mostly Latin read better apart with 「、」 than run into 和/と
+  const names = ids => /^(zh|ja)/.test(D.lang) ? ids.map(cdnName).join("、") : listFmt.format(ids.map(cdnName));
 
   // a row's result with its place, distance and flags
   function rowOf(id) {
@@ -297,18 +298,21 @@ import { probe, dns, once, readPop } from "./probe.mjs";
   }
 
   // the hero: the verdict, four numbers, and what stands out
-  const ICON = { ok: '<path d="M3.5 8.5l3 3 6-7"/>', warn: '<path d="M8 3.5v5.5M8 12v.5"/>', bad: '<path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/>' };
+  const ICON = { ok: '<path d="M3.5 8.5l3 3 6-7"/>', warn: '<path d="M8 3.5v5.5M8 12v.5"/>', bad: '<path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/>',
+    why: '<path d="M8 7.2v4.6M8 4.4v.4"/>' };
+  // A finding: one short line naming the CDNs it is about (the numbers are in the stats and the table); a reason ends
+  // with a link to the help answer that says it in full
   function finding(f) {
-    const r = f.row;
-    if (f.key === "f_fail") return t("f_fail", { list: names(f.ids) });
-    if (f.key === "f_fast") return t("f_fast", { list: names(f.ids), ms: msTxt(FAST) });
-    if (f.key === "f_more") return t("f_more", { n: f.n });
-    if (f.key === "f_slowpath") return t("f_slowpath", { cdn: cdnName(r.id), place: placeTxt(r.place), km: kmTxt(r.d), ms: msTxt(r.ms), floor: msTxt(floorMs(r.d)) });
-    const head = t("f_far", { cdn: cdnName(r.id), place: placeTxt(r.place), km: kmTxt(r.d), ms: msTxt(r.ms) });
-    return join(head, missedNearest(r.d, r.near) ? t("f_far_near", { near: [popCode(r.id, r.near[0]), placeTxt(r.near[1])].filter(Boolean).join(" · "), km: kmTxt(r.near[2]) }) : "", why(r.id));
+    const s = esc(t(f.key, { list: names(f.ids), n: f.n, ms: msTxt(FAST), country: f.cc ? country(f.cc) : "" }));
+    return f.kind === "why" ? `${s} <button class="lnk" type="button" data-help="1">${esc(t("why_more"))}</button>` : s;
   }
-  // sentences in Chinese and Japanese follow each other without a space
-  const join = (...s) => s.filter(Boolean).reduce((a, b) => a + (/[。！？]$/.test(a) ? "" : " ") + b);
+  document.addEventListener("click", e => {
+    const b = e.target.closest && e.target.closest("[data-help]");
+    if (!b) return;
+    $("#helpBtn").click();
+    const q = $(`[data-hq="${b.dataset.help}"]`);
+    if (q) q.click();
+  });
 
   // The visitor's DNS resolver, as 1ms.dog's own name server saw it (dns-test's l.1ms.dog): the page looks up a name
   // made for this run, which reaches that server through the resolver, and the answer says who asked and whether it
@@ -336,14 +340,25 @@ import { probe, dns, once, readPop } from "./probe.mjs";
       redraw();
     } catch (e) {}
   }
-  // why a far location: DNS or the route
-  function why(id) {
-    const m = me(), x = rowOf(id), k = blame(id, RES, m && m.cc, x && x.place ? x.place[1] : null);
-    return k ? t(k, { cdn: cdnName(id), country: RES && RES.cc ? country(RES.cc) : "" }) : "";
+  // Why the far ones are far: one line per reason (DNS or the route), naming the CDNs it applies to
+  function whys(ids) {
+    const m = me(), by = {};
+    for (const id of ids) {
+      const x = rowOf(id), k = blame(id, RES, m && m.cc, x && x.place ? x.place[1] : null);
+      if (k) (by[k] = by[k] || []).push(id);
+    }
+    return Object.entries(by).map(([key, l]) => ({ kind: "why", key, ids: l, cc: RES && RES.cc }));
   }
-  // the resolver itself, as a finding (with DB-IP's credit, which its license asks for next to what it placed)
-  const resItem = () => !RES || SHOWN ? null : ["ok", `${esc(t("at_res", {
-    org: RES.org || "—", country: RES.cc ? country(RES.cc) : "—", ecs: t(RES.ecs ? "at_ecs_yes" : RES.ecsLater ? "at_ecs_some" : "at_ecs_no") }))} <a class="m" href="https://db-ip.com" target="_blank" rel="noopener" title="${esc(RES.geo)}">DB-IP</a>`];
+  // the resolver itself: one quiet line under the findings, with DB-IP's credit (its license asks for it next to what
+  // it placed)
+  function fillRes(final) {
+    const el = $("#resLine");
+    if (!el) return;
+    el.hidden = !(final && RES && !SHOWN);
+    if (el.hidden) return;
+    el.innerHTML = esc(t("at_res", { org: RES.org || "—", country: RES.cc ? country(RES.cc) : "—", ecs: t(RES.ecs ? "at_ecs_yes" : RES.ecsLater ? "at_ecs_some" : "at_ecs_no") })) +
+      ` · <a href="https://db-ip.com" target="_blank" rel="noopener" title="${esc(RES.geo)}">DB-IP</a>`;
+  }
   const FINDS0 = $("#finds") ? $("#finds").innerHTML : "";   // the findings' placeholders, as the page came
   function hero(final) {
     const rows = LIST.map(c => rowOf(c.id)).filter(Boolean);
@@ -375,10 +390,18 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     $("#stFar").textContent = f ? kmTxt(f.d) : "–";
     $("#stFar").className = f ? tierOf(f.d)[1] : "";
     $("#stFarS").textContent = f ? `${cdnName(f.id)} · ${f.place[0]}` : " ";
-    // "nothing stands out" only once everything is in
-    if (!final && !s.findings.length) { $("#finds").innerHTML = FINDS0; return; }
-    const items = s.findings.length ? s.findings : [{ kind: "ok", key: "f_none" }];
-    setFinds([...items.map(x => [x.kind, esc(x.key === "f_none" ? t("f_none") : finding(x))]), final && resItem()]);
+    // what the numbers don't say, most important first, four lines at most: what didn't answer, what missed a nearer
+    // location or went a long way round, why the far ones are far, and what answered fast; "nothing stands out" only
+    // once everything is in
+    const fast = s.findings.filter(x => x.key === "f_fast"), why = whys(s.farIds);
+    // far ones with no reason to give (no resolver seen, a shared result): what it costs, so the list never says
+    // nothing stands out under a verdict that says they are far
+    const far = why.length || !s.farIds.length || s.findings.some(x => x.key === "f_near") ? []
+      : [s.farIds.length <= 3 ? { kind: "warn", key: "f_far", ids: s.farIds } : { kind: "warn", key: "f_far_n", ids: [], n: s.farIds.length }];
+    const items = [...s.findings.filter(x => x.key !== "f_fast"), ...far, ...why, ...fast].slice(0, 4);
+    fillRes(final);
+    if (!final && !items.length) { $("#finds").innerHTML = FINDS0; return; }
+    setFinds((items.length ? items : [{ kind: "ok", key: "f_none" }]).map(x => [x.kind, finding(x)]));
   }
 
   // The findings, updated in place: a line that stays keeps its element and only its words change, so the list doesn't
@@ -421,21 +444,24 @@ import { probe, dns, once, readPop } from "./probe.mjs";
       set("stPop", c || (x.place ? x.place[0] : x.code), x.place ? (c ? placeTxt(x.place) : country(x.place[1])) : "");
       if (x.d != null) { const tier = tierOf(x.d); set("stDist", kmTxt(x.d), t("d_" + tier[2]), tier[1]); } else set("stDist", "–");
       set("stMs", msTxt(x.ms), x.d != null ? t("r_floor", { ms: fmtMs(floorMs(x.d)) }) : "", msTier(x.ms));
-      if (x.d != null && missedNearest(x.d, x.near)) out.push(["warn", t("f_notnearest_tip", { cdn, code: popCode(id, x.near[0]), place: placeTxt(x.near[1]), km: kmTxt(x.near[2]) })]);
-      if (x.d != null && detoured(x.ms, x.d)) out.push(["warn", t("f_slow_tip", { floor: msTxt(floorMs(x.d)), km: kmTxt(x.d) })]);
-      // far, with nothing above to say so: what it costs; then why, when that can be told
-      if (x.d != null && isFar(x) && !out.length) out.push(["warn", t("f_far", { cdn, place: placeTxt(x.place), km: kmTxt(x.d), ms: msTxt(x.ms) })]);
-      if (x.d != null && isFar(x) && why(id)) out.push(["warn", why(id)]);
+      // the same short lines as the home page: a nearer location missed, a long way round, and why it is far
+      if (x.d != null && x.d >= 1500 && missedNearest(x.d, x.near)) out.push(["warn", finding({ key: "f_near", ids: [id] })]);
+      if (x.d != null && x.d < 1500 && detoured(x.ms, x.d)) out.push(["warn", finding({ key: "f_detour", ids: [id] })]);
+      if (x.d != null && x.d >= 1500) for (const w of whys([id])) out.push(["why", finding(w)]);
+      // far with nothing else to say: what it costs
+      if (x.d != null && x.d >= 1500 && !out.length) out.push(["warn", finding({ key: "f_far", ids: [id] })]);
     } else {
       // timed only (or it didn't say): the round trip, and how far the edge can be at most
       v.textContent = t(BY[id].read ? "pv_nopop" : "pv_timed", { cdn, ms: msTxt(x.ms) }); v.className = "verdict " + (x.ms < FAST ? "t1" : x.ms < 80 ? "" : "warn");
-      SUB = t("pv_bound", { km: kmTxt(x.ms * 100) }); out.push(["ok", SUB]);
+      SUB = t("pv_bound", { km: kmTxt(x.ms * 100) }); out.push(["ok", esc(SUB)]);
       set("stPop", t("r_hidden")); set("stDist", "≤ " + kmTxt(x.ms * 100)); set("stMs", msTxt(x.ms), "", msTier(x.ms));
     }
+    if (x.ms == null) out[0][1] = esc(out[0][1]);
     // next to the others, once they are all in
     const all = CDNS.filter(c => R[c.id] && R[c.id].ms != null);
-    if (final && x.ms != null && all.length > 1) out.push(["ok", t("pv_rank", { rank: all.filter(c => R[c.id].ms < x.ms).length + 1, n: all.length })]);
-    if (final || out.length) setFinds([...(out.length ? out : [["ok", t("f_none")]]).map(([k, s]) => [k, esc(s)]), final && resItem()]);
+    if (final && x.ms != null && all.length > 1) out.push(["ok", esc(t("pv_rank", { rank: all.filter(c => R[c.id].ms < x.ms).length + 1, n: all.length }))]);
+    fillRes(final);
+    if (final || out.length) setFinds(out.length ? out : [["ok", esc(t("f_none"))]]);
   }
 
   // the visitor: city and country, and their network

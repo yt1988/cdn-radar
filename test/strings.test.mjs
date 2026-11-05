@@ -15,7 +15,7 @@ test("every key the page uses exists in every language", async () => {
     ...all(page, /data-i="(\w+)"/g), ...all(page, /\{\{a:(\w+)\}\}/g),
     // keys built from a value: themes, distance tiers, verdicts, how a CDN is read
     ...["system", "light", "dark"].map(x => "th_" + x), ...["near", "region", "far", "away"].map(x => "d_" + x),
-    "v_good", "v_mixed", "v_far", "v_noloc", "v_none", "v_hidden", "pv_timed", "pv_nopop", "cdn_title_timed", "cdn_desc_timed", "cdn_kw_timed", "cdn_h1_timed", "cdn_og_timed", "f_fail", "f_far", "f_far_near", "f_slowpath", "f_more", "f_fast", "f_none", "how_trace", "how_header", "how_timing", "how_none", "cdn_desc_list",
+    "v_good", "v_mixed", "v_far", "v_noloc", "v_none", "v_hidden", "pv_timed", "pv_nopop", "cdn_title_timed", "cdn_desc_timed", "cdn_kw_timed", "cdn_h1_timed", "cdn_og_timed", "f_fail", "f_near", "f_detour", "f_far", "f_far_n", "f_fast", "f_none", "at_any", "at_dns_far", "at_dns_split", "at_dns_same", "at_dns_ecs", "how_trace", "how_header", "how_timing", "how_none", "cdn_desc_list",
   ].filter(k => !k.endsWith("_")));
   assert.ok(keys.size > 80, "found " + keys.size + " keys");
   for (const [lang] of LANGS) {
