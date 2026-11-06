@@ -316,7 +316,14 @@ ${tiles}
         .replace(pg.kind !== "home" ? ` aria-current="page"` : "{{none}}", "").split("{{homeHref}}").join(pathOf(slug)).replace("{{langOpts}}", langOpts)
         .replace("{{main}}", () => pg.main).replace("{{article}}", () => pg.article || "")
         .replace("{{helpNav}}", () => helpNav).replace("{{helpC}}", () => helpC).replace("{{rules}}", () => pg.kind === "pop" ? "" : rulesHTML)
-        .replace("{{data}}", () => json(data));
+        .replace("{{data}}", () => json(data))
+        // the first CDNs the test asks, connected while the page loads (the first request on each only opens the
+        // connection and isn't timed, so the numbers are the same; the first result just comes sooner)
+        .replace("{{preconnect}}", () => (pg.cdn ? [BY[pg.cdn]] : CDNS.slice(0, 5)).map(c => `<link rel="preconnect" href="https://${new URL(c.url).host}" crossorigin>`).join("\n"))
+        // the stylesheet inside the page: nothing to wait for before the first paint, and the page script, which
+        // waits for a linked stylesheet, runs (and starts the test) a round trip sooner. The file stays for pages
+        // cached from before
+        .replace("{{cssText}}", () => css);
       if (/\{\{[\w:]+\}\}/.test(html)) throw new Error("unfilled placeholder in " + at(slug) + ": " + /\{\{[\w:]+\}\}/.exec(html)[0]);
       files[at(slug).slice(1) + "index.html"] = html;
       sitemaps[lang].push(pg.dir);
