@@ -97,7 +97,7 @@ export async function build() {
   const tpl = await readFile(new URL("page.html", src), "utf8");
   const POPS = JSON.parse(await readFile(new URL("data/pops.json", root), "utf8"));
 
-  const js = (await bundle({ entryPoints: [fileURLToPath(new URL("app.js", src))], bundle: true, minify: true, format: "iife", target: "es2020",
+  const js = (await bundle({ entryPoints: [fileURLToPath(new URL("app.js", src))], bundle: true, minify: true, format: "iife", target: "es2019",
     legalComments: "none", write: false, absWorkingDir: fileURLToPath(root), external: ["/assets/share/*"] })).outputFiles[0].text;
   const css = (await transform((await Promise.all(["fonts.css", "base.css", "style.css"].map(f => readFile(new URL(f, src), "utf8")))).join("\n"),
     { loader: "css", minify: true, legalComments: "none" })).code;
