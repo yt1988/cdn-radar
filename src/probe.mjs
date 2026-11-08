@@ -88,11 +88,16 @@ export async function dns(host, signal) {
     const r = await fetch("/dns?name=" + encodeURIComponent(host), { signal, cache: "no-store" });
     if (r.ok) return await r.json();
   } catch (e) { if (signal && signal.aborted) throw e; }
-  // four seconds each: a blocked resolver would otherwise hold the check until the browser gives up
-  const sig = AbortSignal.any && signal ? AbortSignal.any([signal, AbortSignal.timeout(4000)]) : AbortSignal.timeout ? AbortSignal.timeout(4000) : signal;
-  const ask = base => fetch(base + encodeURIComponent(host), { signal: sig, cache: "no-store", credentials: "omit", referrerPolicy: "no-referrer" })
+  // four seconds each: a blocked resolver would otherwise hold the check until the browser gives up. The caller's
+  // signal and the timer are joined by hand, as once() does: AbortSignal.any and .timeout are missing before Safari
+  // 17.4 and Chrome 116 (1ms-shell lessons: the build target rewrites syntax, not missing functions)
+  const ctl = new AbortController(), stop = () => ctl.abort(), tm = setTimeout(stop, 4000);
+  if (signal) signal.addEventListener("abort", stop, { once: true });
+  const ask = base => fetch(base + encodeURIComponent(host), { signal: ctl.signal, cache: "no-store", credentials: "omit", referrerPolicy: "no-referrer" })
     .then(r => r.json()).then(j => j.Answer || []);
   const got = await Promise.allSettled([ask("https://dns.alidns.com/resolve?type=1&name="), ask("https://dns.google/resolve?type=A&name=")]);
+  clearTimeout(tm);
+  if (signal) signal.removeEventListener("abort", stop);
   if (signal && signal.aborted) throw new DOMException("aborted", "AbortError");
   const ans = got.filter(x => x.status === "fulfilled").flatMap(x => x.value);
   if (!got.some(x => x.status === "fulfilled")) return null;
