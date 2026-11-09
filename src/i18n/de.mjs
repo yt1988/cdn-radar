@@ -119,6 +119,7 @@ export default {
   share_title: "{summary} · CDN-Radar",
   share_desc: "Welcher Standort jedes großen CDN dich bedient und mit welcher Latenz. Teste deine Verbindung in wenigen Sekunden.",
   card_sub: "Cloudflare · Akamai · CloudFront · Fastly · Azure · Bunny",
+  rp_bad: "Stimmt das Ergebnis nicht?", rp_pre: "Das Ergebnis stimmt nicht: ",
 
   cdn_title: "{cdn}-Standort prüfen: Welches {cdn}-Rechenzentrum bedient dich? · CDN-Radar",
   cdn_desc: "Sieh, welcher {cdn}-Standort dich bedient, wie weit er entfernt ist und wie hoch deine Latenz ist – gemessen in deinem Browser, im Vergleich mit den anderen großen CDNs.",

@@ -119,6 +119,7 @@ export default {
   share_title: "{summary} · CDN 레이더",
   share_desc: "주요 CDN이 어느 데이터센터에서 연결되는지와 지연 시간. 내 인터넷도 몇 초면 측정할 수 있어요.",
   card_sub: "Cloudflare · Akamai · CloudFront · Fastly · Azure · Bunny",
+  rp_bad: "결과가 이상한가요?", rp_pre: "결과가 이상해요: ",
 
   cdn_title: "{cdn} 노드 확인: 나는 어느 {cdn} 데이터센터에 연결될까? · CDN 레이더",
   cdn_desc: "{cdn}이(가) 어느 데이터센터에서 나에게 연결되는지, 거리와 지연 시간을 브라우저에서 측정해요. 다른 주요 CDN과도 나란히 비교할 수 있어요.",

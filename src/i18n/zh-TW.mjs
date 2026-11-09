@@ -119,6 +119,7 @@ export default {
   share_title: "{summary} · CDN 雷達",
   share_desc: "看看各家大型 CDN 把你分配到哪個節點、延遲多少。打開就測，幾秒出結果。",
   card_sub: "Cloudflare · Akamai · CloudFront · Fastly · Azure · Bunny",
+  rp_bad: "結果看著不對？", rp_pre: "結果看著不對：",
 
   cdn_title: "{cdn} 節點查詢：你連到的是 {cdn} 哪個節點 · CDN 雷達",
   cdn_desc: "打開網頁就能測出 {cdn} 把你分配到哪個節點、離你多遠、延遲多少，並和其他大型 CDN 一起比較。",

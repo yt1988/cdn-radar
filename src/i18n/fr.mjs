@@ -119,6 +119,7 @@ export default {
   share_title: "{summary} · Radar CDN",
   share_desc: "Quel datacenter de chaque grand CDN vous sert, et avec quelle latence. Testez votre connexion en quelques secondes.",
   card_sub: "Cloudflare · Akamai · CloudFront · Fastly · Azure · Bunny",
+  rp_bad: "Le résultat semble faux ?", rp_pre: "Le résultat semble faux : ",
 
   cdn_title: "Nœud {cdn} : quel datacenter {cdn} vous sert ? · Radar CDN",
   cdn_desc: "Découvrez quel datacenter {cdn} vous sert, à quelle distance il se trouve et votre latence, mesurés dans votre navigateur et comparés aux autres grands CDN.",

@@ -119,6 +119,7 @@ export default {
   share_title: "{summary} · CDN Radar",
   share_desc: "Which data center of each big CDN serves you, and your latency. Test your own connection in a few seconds.",
   card_sub: "Cloudflare · Akamai · CloudFront · Fastly · Azure · Bunny",
+  rp_bad: "The result looks wrong?", rp_pre: "The result looks wrong: ",
 
   // a CDN's page: /<cdn>/
   cdn_title: "{cdn} location checker: which {cdn} data center serves you? · CDN Radar",

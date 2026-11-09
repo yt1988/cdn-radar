@@ -119,6 +119,7 @@ export default {
   share_title: "{summary} · Radar CDN",
   share_desc: "Qué centro de datos de cada gran CDN te atiende y con cuánta latencia. Mide tu conexión en unos segundos.",
   card_sub: "Cloudflare · Akamai · CloudFront · Fastly · Azure · Bunny",
+  rp_bad: "¿El resultado está mal?", rp_pre: "El resultado está mal: ",
 
   cdn_title: "Nodo de {cdn}: ¿qué centro de datos de {cdn} te atiende? · Radar CDN",
   cdn_desc: "Mira qué centro de datos de {cdn} te atiende, a qué distancia está y cuánta latencia tienes, medido en tu navegador y junto a las otras grandes CDN.",

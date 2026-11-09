@@ -5,6 +5,7 @@
 import { CDNS, BY, HOSTS, nameOf, placeOf, popMaps, SITE_HEADERS, SITE_TIMING, PARSE, cdnOfName, isCloudflareIP } from "./cdns.mjs";
 import { km, floorMs, tierOf, detoured, nearest, missedNearest, summary, FAST, isFar, blame, encode as encodeShare, decode as decodeShare, sharePath, hostOf } from "./lib.mjs";
 import { probe, dns, once, readPop } from "./probe.mjs";
+import { reportOf } from "./report.mjs";
 
 (function () {
   "use strict";
@@ -135,8 +136,9 @@ import { probe, dns, once, readPop } from "./probe.mjs";
 
   /* ---------- data: the locations of the CDNs that publish them, where codes are, and where the visitor is ---------- */
   const DATA = { pops: null };
+  let POPU = "";   // data/pops.json's "updated": the day the location lists were made (a problem report carries it)
   const getJ = (u, opt) => fetch(u, opt).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
-  const popsP = getJ("/assets/" + D.files.pops).then(j => { DATA.pops = popMaps(j); }).catch(() => { DATA.pops = {}; });
+  const popsP = getJ("/assets/" + D.files.pops).then(j => { DATA.pops = popMaps(j); POPU = j.updated || ""; }).catch(() => { DATA.pops = {}; });
   // Where the codes are that the CDNs' own lists don't hold (IATA codes, Akamai's cities): asked from this site's
   // Worker as they come up, a few at a time (/places; data/places.json is 260 KB, a page needs a handful of it)
   const PLACES = {}, asking = new Set();
@@ -524,6 +526,7 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     if ($("#rerun")) $("#rerun").disabled = false;
     LAST = { ts: Date.now() };
     if ($("#shareBtn")) $("#shareBtn").disabled = false;
+    if (canReport) rpBtn.hidden = false;
   }
 
   // a precise location: the browser's, when the visitor asks (the IP's city can be hundreds of km off)
@@ -646,6 +649,7 @@ import { probe, dns, once, readPop } from "./probe.mjs";
     $("#prog").classList.add("end"); $("#progTxt").innerHTML = "&nbsp;";
     $("#rerun").disabled = false;
     LAST = { ts: S.ts, shared: S }; $("#shareBtn").disabled = false;
+    if (canReport) rpBtn.hidden = false;
   }
 
   /* ---------- share: the 1ms.dog share dialog (1ms-shell assets/share/, copied verbatim to /assets/share/) ---------- */
@@ -721,6 +725,54 @@ import { probe, dns, once, readPop } from "./probe.mjs";
       x.textAlign = "right"; x.fillStyle = C.fg; x.font = `650 22px ${M}`; x.fillText(site.ms == null ? "—" : msTxt(site.ms), W - P, sy); x.textAlign = "left";
     }
   }
+
+  /* ---------- reporting a problem (the shell's dialog) ---------- */
+  // The dialog asks this page what the visitor saw (window.msReport: 1ms-shell docs/tool-contract.md section 4, and the
+  // audit yt1988/1ms-shell#97): the page's own verdict as the line, a share link's readings without the visitor's place
+  // (a city, its coordinates and the network are what the share dialog's switches hide by default), and those readings
+  // as one-tap answers. src/report.mjs builds it, so the dialog's limits and that privacy scope are testable without a
+  // browser. A CDN's page brings the Tokyo job's latest readings and the ISP table's date along, and a site check its
+  // result.
+  function tokyoReport() {
+    if (!TK || !TK.latest || !TK.latest.r) return null;
+    const one = f => { const x = TK.latest.r[D.cdn + "/" + f]; return x ? (x[1] == null ? "fail" : (x[0] || "-") + "/" + Math.round(x[1])) : null; };
+    const out = { at: new Date(TK.latest.t).toISOString(), v4: one(4), v6: one(6) };
+    return out.v4 || out.v6 ? out : null;
+  }
+  // a stat's label as the page draws it ("Typical latency", "Latency"): built into the HTML, not in window.L1MS
+  const statLabel = id => { const b = $("#" + id), st = b && b.closest(".stat"), k = st && st.querySelector(".k"); return k ? k.textContent : ""; };
+  window.msReport = () => {
+    // nothing to describe before a run, or while one is running
+    if (!LAST || RUN) return null;
+    const rows = LIST.filter(c => R[c.id]).map(c => {
+      const x = rowOf(c.id);
+      return { id: c.id, name: cdnName(c.id), code: x.code, ms: x.ms, err: x.err, read: !!BY[c.id].read };
+    });
+    if (!rows.length) return null;
+    const s = summary(LIST.map(c => rowOf(c.id) || { id: c.id, ms: null })), x = D.kind === "home" ? null : rowOf(D.cdn);
+    // a CDN's page says where it serves you from, a location page whether it is this one, the home page the verdict
+    const vEl = $(D.kind === "pop" ? "#popRes" : "#verdict");
+    const head = vEl ? vEl.textContent : "";
+    const verdict = D.kind === "home" ? s.key
+      : D.kind === "pop" ? (x.ms == null ? "pr_fail" : x.code === D.pop.code ? "pr_same" : "pr_other")
+      : (x.ms == null ? "pv_fail" : x.code ? "pv_pop" : BY[D.cdn].read ? "pv_nopop" : "pv_timed");
+    return reportOf({
+      at: LAST.ts, lang: D.lang, kind: D.kind, cdn: D.cdn, pop: D.pop ? D.pop.code : null, shared: !!SHOWN,
+      context: D.kind === "pop" ? cdnName(D.cdn) + " " + D.pop.code : "", head, sub: D.kind === "home" ? SUB : "",
+      med: s.med, medLabel: D.kind === "home" ? statLabel("stMed") : statLabel("stMs"), verdict, far: s.farIds,
+      counts: { tested: LIST.length, answered: rows.filter(r => r.ms != null).length, located: s.located, near: s.near, far: s.far },
+      rows,
+      site: SITE && SITE.host ? { host: SITE.host, name: SITE.cdn ? cdnName(SITE.cdn) : "", cdn: SITE.cdn, code: SITE.code, ms: SITE.ms } : null,
+      tokyo: D.kind === "cdn" ? tokyoReport() : null,
+      ecs: D.kind === "cdn" && EC && EC.t ? { at: new Date(EC.t).toISOString() } : null,
+      list: { up: POPU, file: D.files.pops },
+      t, msTxt,
+    });
+  };
+  // beside the results: the shell's dialog, started with "the result looks wrong:", which makes it ask which part and
+  // offer the picks. Only when the shell is there to open it (on 1ms.dog; a fork serving the page itself has none), and
+  // once there is a result.
+  const rpBtn = $("#rpBtn"), canReport = !!rpBtn && typeof window.msOpenReport === "function";
 
   if ($("#rerun")) $("#rerun").onclick = start;
   const SP = sharePath(location.pathname), SHARED = SP && decodeShare(SP.code);

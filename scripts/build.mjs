@@ -161,7 +161,7 @@ export async function build() {
     </section>`}
 
     <section class="cdns card" aria-labelledby="cdnsT">
-      <div class="cdns-h"><h2 id="cdnsT">${esc(T(first ? "h_detail" : "h_cdns"))}</h2><span class="sub">${esc(T("cdns_sub"))}</span></div>
+      <div class="cdns-h"><h2 id="cdnsT">${esc(T(first ? "h_detail" : "h_cdns"))}</h2><span class="sub">${esc(T("cdns_sub"))}</span><button class="rp-btn" id="rpBtn" type="button" hidden data-ms-report="${esc(T("rp_pre"))}">${esc(T("rp_bad"))}</button></div>
       ${rows ? `<div class="cr ch"><span>${esc(T("c_cdn"))}</span><span>${esc(T("c_pop"))}</span><span>${esc(T("c_dist"))}</span><span>${esc(T("c_ms"))}</span></div>` : ""}
 ${rows}
       ${tiles ? `<h3 class="tt-h">${esc(T("h_timed"))}</h3>
@@ -234,7 +234,8 @@ ${tiles}
       </div>
       <div hidden>${rowHTML(BY[tested])}</div>
       <div class="pop-test"><p class="pop-res" id="popRes">${esc(T("v_wait"))}</p><p class="pop-dist m" id="popDist">&nbsp;</p>
-        <p class="you"><span class="you-k">${esc(T("you_k"))}</span><span id="you"><i class="skl"></i></span> <span class="m" id="youNet"></span><button class="lnk" id="precise" type="button">${esc(T("precise"))}</button></p></div>
+        <p class="you"><span class="you-k">${esc(T("you_k"))}</span><span id="you"><i class="skl"></i></span> <span class="m" id="youNet"></span><button class="lnk" id="precise" type="button">${esc(T("precise"))}</button></p>
+        <button class="rp-btn" id="rpBtn" type="button" hidden data-ms-report="${esc(T("rp_pre"))}">${esc(T("rp_bad"))}</button></div>
     </section>
 
     <section class="card near">

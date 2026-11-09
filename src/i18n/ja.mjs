@@ -119,6 +119,7 @@ export default {
   share_title: "{summary} · CDN レーダー",
   share_desc: "大手 CDN がどの拠点から配信しているか、遅延と一緒に。自分の回線も数秒で測れます。",
   card_sub: "Cloudflare · Akamai · CloudFront · Fastly · Azure · Bunny",
+  rp_bad: "結果がおかしい？", rp_pre: "結果がおかしい：",
 
   cdn_title: "{cdn} 拠点チェッカー：どの {cdn} 拠点につながっている？ · CDN レーダー",
   cdn_desc: "{cdn} がどの拠点から配信しているか、距離と遅延をブラウザだけで測ります。ほかの大手 CDN とも並べて比べられます。",
