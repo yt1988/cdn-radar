@@ -15,6 +15,8 @@
 //                                                    365's CDN, whose res-1 host is always Akamai
 //   fastly      fastly.jsdelivr.net                  X-Served-By: cache-fra-…-FRA, cache-nrt-…-NRT (the last is the edge)
 //   azure       res-2.cdn.office.net                 X-Azure-Ref: 20261102T…Z-…hC1SEL…: Azure Front Door, always
+//                                                    (GitHub's runners are answered without it; verify skips the
+//                                                    location there, see scripts/verify.mjs --skip-location)
 //   bunny       fonts.bunny.net                      Server: BunnyCDN-JP1-1195 (the region API's code, and a number)
 //   wikimedia   upload.wikimedia.org                 X-Cache: cp5029 hit (the first digit is the data center)
 //

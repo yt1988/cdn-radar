@@ -99,6 +99,7 @@ scripts/build.mjs    public/: pages per language, CDN and location; sitemaps; ro
 - The answer must come from the edge (a cached file, or one the edge writes itself), without a redirect, and be small.
 - For a location: CORS with the header in `Access-Control-Expose-Headers`, or `Timing-Allow-Origin` with the location in `Server-Timing`. Check from a few networks: some sites send a different CDN by region (`res.cdn.office.net` is Akamai or Azure; `res-1` is always Akamai, `res-2` always Azure).
 - Run `npm run verify` and add a sample of the new header to `test/lib.test.mjs`.
+- GitHub's runners can't check Azure's location: they get `res-2.cdn.office.net` without `X-Azure-Ref` (2–3 ms, from a nearby cache), while visitor networks, including a US one, get it. CI runs `npm run verify -- --skip-location azure`, which still checks the answer, its status, CORS, the exposed header and the timing; run `npm run verify` from your own network to check the location.
 
 ## License
 

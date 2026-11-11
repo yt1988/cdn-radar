@@ -9,7 +9,13 @@
 //   - the fastest of three requests on a reused connection, printed: it should be about one round trip to a nearby
 //     edge; much more means the file comes from the origin, which the page would count as distance
 // Run it from a few networks (a laptop in Asia, a server in Europe): a CDN may answer differently by region.
-// Usage: node scripts/verify.mjs      exit 1 when a file fails
+// Usage: node scripts/verify.mjs [--skip-location <id>[,<id>…]]      exit 1 when a file fails
+//
+// --skip-location: this network's edge itself answers without the location, so the check is red for the network and
+// not for the file. GitHub's runners get res-2.cdn.office.net in 2–3 ms from a nearby cache, without X-Azure-Ref,
+// while the same file carries it from visitor networks (2026-11-11: SEL from China, PHX from a US scanner in
+// Phoenix). The answer, CORS, the exposed header and the timing are still checked; only a missing location is
+// skipped, and the location is checked from a visitor network instead.
 import { request, Agent } from "node:https";
 import { CDNS, PARSE } from "../src/cdns.mjs";
 
@@ -24,8 +30,15 @@ const get = url => new Promise((res, rej) => {
   req.on("timeout", () => req.destroy(new Error("timeout"))); req.on("error", rej); req.end();
 });
 
+const skipLoc = new Set();
+for (let i = 2; i < process.argv.length; i++) {
+  const a = process.argv[i], v = a === "--skip-location" ? process.argv[++i] : a.startsWith("--skip-location=") ? a.slice(16) : "";
+  for (const id of String(v || "").split(",")) if (id.trim()) skipLoc.add(id.trim());
+}
+
 let bad = 0;
 const say = (okay, what, why = "") => { if (!okay) bad++; console.log(`${okay ? "ok  " : "FAIL"} ${what.padEnd(12)} ${why}`); };
+const skip = (what, why) => console.log(`skip ${what.padEnd(12)} ${why}`);
 
 for (const c of CDNS) {
   for (const [f, read] of [[c.url, c.read], ...[].concat(c.alt || []).map(a => [a.url, a.read])]) {
@@ -48,6 +61,8 @@ for (const c of CDNS) {
         code = m ? PARSE[name](m[1]) : null;
         why = h["timing-allow-origin"] ? "" : "no Timing-Allow-Origin";
       }
+      // a healthy answer that only lacks the location, from a network whose edge omits it (see --skip-location)
+      if (read && !code && !why && first.status < 400 && skipLoc.has(c.id)) { skip(what, `${first.status} best ${best.toFixed(0)} ms  no location from this network; checked from a visitor network`); continue; }
       if (read && !code) why = why || "no location in the answer";
       // a 429 the edge wrote itself (Wikimedia's rate limit, "int-front") still names the edge and times it
       say(!why && (first.status < 400 || first.status === 429 && !!code), what, `${first.status} ${code || (read ? "" : "(timed only)")} best ${best.toFixed(0)} ms${why ? "  " + why : ""}`);
