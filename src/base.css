@@ -92,7 +92,7 @@
   --t4: #f59e42;
   --t5: #f56565;
 }
-===== ACCENT ends ===== */
+/* ===== ACCENT ends ===== */
 
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
@@ -137,14 +137,18 @@ select option:checked { background-color: var(--soft); }
 #theme svg { display: none; }
 #theme[data-th="system"] .i-sys, #theme[data-th="light"] .i-light, #theme[data-th="dark"] .i-dark, #theme:not([data-th]) .i-sys { display: block; }
 
-/* page heading: one h1 and at most one line under it */
-.h1 { font-size: var(--fs-h1); font-weight: 700; letter-spacing: -.015em; line-height: 1.25; }
-.lead { font-size: var(--fs-body); color: var(--muted); }
+/* page heading: one h1 and at most one line under it.
+   Class names here are deliberately not the short generic ones (.h1, .lead, .st, .dot, .note, .empty, .pad): a tool page
+   that already uses such a name keeps its own rule for the properties it sets and silently inherits the rest from here —
+   who's 18px status dot grew 9px of pill padding that way on 2026-11-12. What a page's own name cannot collide with, the
+   shared file may own. */
+.page-h { font-size: var(--fs-h1); font-weight: 700; letter-spacing: -.015em; line-height: 1.25; }
+.page-sub { font-size: var(--fs-body); color: var(--muted); }
 h2 { font-size: var(--fs-title); font-weight: 700; }
 
 /* everything that answers a question about this page is a card; depth comes from --line and --soft, not from shadows */
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); }
-.pad { padding: var(--pad); }
+.card-pad { padding: var(--pad); }
 
 /* button: one shape in three weights. The primary is the tool's accent, and a page has at most one */
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 36px; padding: 0 14px;
@@ -164,23 +168,23 @@ h2 { font-size: var(--fs-title); font-weight: 700; }
 .kpi span { display: block; margin-top: 4px; font-size: var(--fs-caption); color: var(--muted); }
 
 /* the verdict: a colored dot and one sentence, the same shape on every tool and the first thing in the first screen */
-.verdict { display: flex; align-items: center; gap: 10px; font-size: var(--fs-lead); font-weight: 600; line-height: 1.4; }
-.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
-.verdict .dot { width: 10px; height: 10px; }
-.verdict.ok .dot { background: var(--t1); } .verdict.warn .dot { background: var(--warn); } .verdict.bad .dot { background: var(--t5); }
+.page-verdict { display: flex; align-items: center; gap: 10px; font-size: var(--fs-lead); font-weight: 600; line-height: 1.4; }
+.page-verdict .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); flex: none; }
+.page-verdict.ok .dot { background: var(--t1); } .page-verdict.warn .dot { background: var(--warn); } .page-verdict.bad .dot { background: var(--t5); }
 
 /* a state in one word: the pill carries the color, the dot inside it repeats it */
-.st { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 9px; border-radius: var(--r-pill);
+.pill { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 9px; border-radius: var(--r-pill);
   font-size: var(--fs-caption); font-weight: 600; background: var(--soft); color: var(--muted); white-space: nowrap; }
-.st .dot { width: 6px; height: 6px; background: currentColor; }
-.st.ok { color: var(--t1); background: color-mix(in srgb, var(--t1) 12%, transparent); }
-.st.warn { color: var(--warn); background: var(--warn-soft); }
-.st.bad { color: var(--t5); background: color-mix(in srgb, var(--t5) 12%, transparent); }
+.pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
+.pill.ok { color: var(--t1); background: color-mix(in srgb, var(--t1) 12%, transparent); }
+.pill.warn { color: var(--warn); background: var(--warn-soft); }
+.pill.bad { color: var(--t5); background: color-mix(in srgb, var(--t5) 12%, transparent); }
 
-.note { font-size: var(--fs-caption); color: var(--muted); line-height: 1.5; }
-/* a value that has not arrived: same height as the text it will replace, so nothing below it moves */
-.skl { display: inline-block; height: 12px; min-width: 80px; max-width: 100%; border-radius: var(--r-chip);
-  background: var(--soft); vertical-align: middle; animation: skl-blink 1.4s ease-in-out infinite; }
-@keyframes skl-blink { 50% { opacity: .45; } }
+.hint { font-size: var(--fs-caption); color: var(--muted); line-height: 1.5; }
+/* a value that has not arrived: same height as the text it will replace, so nothing below it moves. No min-width: the
+   block that holds it says how wide, and a minimum of our own would push a narrow one wider than its space */
+.skel { display: inline-block; height: 12px; max-width: 100%; border-radius: var(--r-chip);
+  background: var(--soft); vertical-align: middle; animation: skel-blink 1.4s ease-in-out infinite; }
+@keyframes skel-blink { 50% { opacity: .45; } }
 /* nothing to show here yet, or nothing this source could tell: never dressed up as a result */
-.empty { display: grid; place-items: center; min-height: 64px; padding: 12px; text-align: center; color: var(--muted); font-size: var(--fs-small); }
+.blank { display: grid; place-items: center; min-height: 64px; padding: 12px; text-align: center; color: var(--muted); font-size: var(--fs-small); }
