@@ -19,7 +19,7 @@
 ## 远节点归因（`lib.blame`）
 
 - **按 DNS 分配节点：** Akamai、CloudFront、Bunny、Wikimedia。**用 Anycast：** Cloudflare（含中国网络）、Fastly、Azure Front Door。只测延迟的几家不做归因。
-- **怎么知道访客的 DNS 服务器：** 每次测试让浏览器解析一个本次专用的名字，它的权威 DNS 记录下来是谁来查询的、在哪、有没有带 ECS（EDNS Client Subnet）。页面再向它取结果。在 1ms.dog 上用的是 `l.1ms.dog`。
+- **怎么知道访客的 DNS 服务器：** 每次测试让浏览器解析一个本次专用的名字，它的权威 DNS 记录下来是谁来查询的、在哪、有没有带 ECS（EDNS Client Subnet）。页面再向它取结果。在 1ms.dog 上用的区由 shell 注入的 `ms-servers` 指定。
 - **以最早到达的那批查询为准（150 ms 以内）：**
   - 晚到的查询常来自同一运营商的其他出口，有时带着 ECS，但浏览器拿到的答案是最早那批给的。
   - 2026-11-04 实测中国联通：最早的查询不带 ECS，约 250 ms 后又来了几条带 ECS 的，来自其他 IP。

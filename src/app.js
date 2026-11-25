@@ -316,17 +316,27 @@ import { reportOf } from "./report.mjs";
     if (q) q.click();
   });
 
-  // The visitor's DNS resolver, as 1ms.dog's own name server saw it (dns-test's l.1ms.dog): the page looks up a name
+  // The visitor's DNS resolver, as 1ms.dog's own name server saw it: the page looks up a name
   // made for this run, which reaches that server through the resolver, and the answer says who asked and whether it
   // passed on the visitor's subnet. It tells a far location chosen by DNS from one chosen by the route (lib.blame).
   // Kept for this run only: never in a share link, a share card or a problem report. Only on 1ms.dog.
+  // The zone is the shell's: ms-servers' `dns` is the results API, https://api.<zone>:<port>, so the zone is that host
+  // without its `api.` label (tool-contract §2). No meta (self-hosted, local): no resolver reading.
+  const DNS_ZONE = (() => {
+    const m = /(?:^|;)dns=([^;]+)/.exec((document.querySelector('meta[name="ms-servers"]') || {}).content || "");
+    if (!m) return "";
+    try {
+      const u = new URL(m[1].trim()), z = u.hostname.replace(/^api\./, "");
+      return z !== u.hostname && z.includes(".") ? z + (u.port ? ":" + u.port : "") : "";
+    } catch (e) { return ""; }
+  })();
   let RES = null;
   async function askResolver(ctl) {
     RES = null;
-    if (!/(^|\.)1ms\.dog$/.test(location.hostname) || SHOWN) return;
+    if (!DNS_ZONE || SHOWN) return;
     const tok = Array.from(crypto.getRandomValues(new Uint8Array(12)), b => (b % 36).toString(36)).join("");
     try {
-      const j = await getJ(`https://${tok}-c.l.1ms.dog:2053/`, { cache: "no-store", signal: ctl.signal });
+      const j = await getJ(`https://${tok}-c.${DNS_ZONE}/`, { cache: "no-store", signal: ctl.signal });
       // the lookups that answered the browser come first; more can come a few hundred ms later, often from other
       // addresses of the same ISP (other paths, a prefetch), sometimes passing a subnet the first ones didn't (China
       // Unicom, 2026-11-04). The server waits for those too (600 ms after the first); the first ones say who answered.
