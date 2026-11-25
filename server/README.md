@@ -2,8 +2,8 @@
 
 Two optional scheduled jobs. They feed the page's "seen from Tokyo" section and its ISP table (on 1ms.dog they run in
 Tokyo). They open no ports. Their results go to a directory (`OUT`, `<data-dir>` below) that any static file server
-publishes read-only. The site's Worker fetches them from `DATA_URL` in `src/worker.js` and passes them to the page as
-`/tokyo` and `/ecs`. The server needs no Cloudflare token. Without these jobs the page works as before, just without
+publishes read-only. The site's Worker fetches them from the results directory, `DATA_URL` (its `/cdn/` part), and
+passes them to the page as `/tokyo` and `/ecs`. The server needs no Cloudflare token. Without these jobs the page works as before, just without
 those two sections.
 
 | Job | Suggested schedule | What | Output |

@@ -1,6 +1,6 @@
 // 1ms-cdn-watch: every 10 minutes, from 1ms.dog's server in Tokyo, the same test the page runs, over IPv4 and IPv6:
 // which location of each CDN answers and the round trip to it. It keeps every run, a day to a file, and sums up the
-// last 30 days for the site (summary.json, fetched by the Worker through data.1ms.dog):
+// last 30 days for the site (summary.json, fetched by the Worker from the results directory):
 //
 //   days/<YYYY-MM-DD>.json  [{ t, r: { "<cdn>/<4|6>": [code, ms, ip] | [null, null, null, err] } }]   kept 400 days
 //   summary.json            { t, latest: <the last run>, keys: { "<cdn>/<4|6>": { n, ok, codes: { code: runs }, med,
