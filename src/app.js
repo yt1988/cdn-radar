@@ -112,7 +112,7 @@ import { reportOf } from "./report.mjs";
 
   /* ---------- other 1ms.dog tools (on 1ms.dog only: the shell's <meta>) ---------- */
   // every link to another tool ends with the external-link mark (1ms-shell docs/tool-contract.md, section 4)
-  const EXT = '<svg class="ext" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2.5h4.5V7M13.5 2.5 7.5 8.5M12 10v3.5H2.5V4H6"/></svg>';
+  const EXT = '<svg xmlns="http://www.w3.org/2000/svg" class="ext" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2.5h4.5V7M13.5 2.5 7.5 8.5M12 10v3.5H2.5V4H6"/></svg>';
   const tool = n => { const m = document.querySelector(`meta[name="${n}"]`); return m ? m.content.replace(/\/+$/, "") + D.home : null; };
   const ASN = tool("asn"), EGRESS = tool("egress"), COST = tool("cost"), HOME = tool("home"), SPEED = tool("speed");
   const link = (id, href) => { const a = $("#" + id); if (a && href) { a.href = href; a.hidden = false; } };
@@ -427,7 +427,7 @@ import { reportOf } from "./report.mjs";
       let li = lis[i];
       if (!li || li.classList.contains("wait")) {
         const n = document.createElement("li");
-        n.innerHTML = `<svg viewBox="0 0 16 16" aria-hidden="true"></svg><span></span>`;
+        n.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" aria-hidden="true"></svg><span></span>`;
         if (li) li.replaceWith(n); else ul.append(n);
         li = n;
       }
@@ -642,7 +642,7 @@ import { reportOf } from "./report.mjs";
 
   // The share component, with its version: /assets/ is cached for a week, and a page must not get last version's
   // copy (no received() before version 2, a stale cache fixed in 3)
-  const SHARE_JS = "/assets/share/share.js?v=10";
+  const SHARE_JS = "/assets/share/share.js?v=11";
 
   /* ---------- a shared result ---------- */
   // Opening /r/<code> shows that result as the test drew it, and doesn't test until the visitor asks
@@ -671,7 +671,9 @@ import { reportOf } from "./report.mjs";
     const site = S ? S.site : SITE ? { cdn: SITE.cdn, code: SITE.code, ms: SITE.ms, host: SITE.host } : null;
     const isp = S ? S.isp : U && U.org || "";
     const where = m && m.cc ? { cc: m.cc, lat: m.lat, lon: m.lon, city: m.city || "" } : null;
-    const { share } = await import(SHARE_JS);
+    const shareMod = await import(SHARE_JS).catch(() => null);
+    if (!shareMod) { window.msShareDown && window.msShareDown(); return; }
+    const { share } = shareMod;
     share({
       lang: D.lang, name: t("app_name"), file: "cdn-radar",
       show: ["city", "isp"], never: ["ip"], canShow: !!where,

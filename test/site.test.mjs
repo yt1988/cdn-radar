@@ -98,3 +98,11 @@ test("the rule sets for proxy clients list every test host, and only those", asy
   assert.ok(HOSTS.includes("www.cloudflare.com") && !HOSTS.some(h => h.includes("1ms.dog")));
   assert.match(await readFile(new URL("../public/_headers", import.meta.url), "utf8"), /\/rules\/\*\n  Access-Control-Allow-Origin: \*\n  Content-Type: text\/plain/);
 });
+
+// The icons the script builds with innerHTML never pass through the shell's HTMLRewriter, so the namespace has to be in
+// the source. The shell writes it onto the markup it rewrites, which is why only these are checked here (#146 一.3).
+test("every runtime-built svg says it is SVG", async () => {
+  const src = await readFile(new URL("../src/app.js", import.meta.url), "utf8");
+  const bare = [...src.matchAll(/<svg\b[^>]*>/g)].map(m => m[0]).filter(t => !t.includes('xmlns="http://www.w3.org/2000/svg"'));
+  assert.deepEqual(bare, [], "an icon inserted at runtime needs xmlns in the source, or Safari's Dark Reader cannot decode it");
+});
