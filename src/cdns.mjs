@@ -7,7 +7,10 @@
 //
 //   cloudflare  www.cloudflare.com/cdn-cgi/trace     the body: colo=HKG
 //   cfchina     www.cloudflare-cn.com/cdn-cgi/trace  the same, on Cloudflare's China Network (data centers in mainland
-//                                                    China run with JD Cloud; it answers from China wherever you are)
+//                                                    China run with JD Cloud; it answers from China wherever you are).
+//                                                    Its addresses are mainland China's: from outside, only some routes
+//                                                    reach them (GitHub's IPv4-only runners time out; see
+//                                                    scripts/verify.mjs --skip-unreachable)
 //   cloudfront  static.figma.com                     Server-Timing cdn-pop;desc="NRT57-P11" (Timing-Allow-Origin: *);
 //                                                    Hugging Face's avatars (X-Amz-Cf-Pop, all headers exposed) where
 //                                                    Figma's has none

@@ -5,15 +5,67 @@ on:
   schedule:
     - cron: "37 4 * * 1"
   workflow_dispatch:
+    inputs:
+      retry:
+        description: "set by the scheduled run when it failed once and retried itself"
+        required: false
+        default: ""
+permissions:
+  contents: read
+  issues: write
+  actions: write    # gh workflow run
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
           node-version: 22
-      # Azure's edge answers these runners without X-Azure-Ref, in 2–3 ms from a nearby cache; the same file carries
-      # it from visitor networks, including a US one. Everything else is still checked. Run `npm run verify` from a
-      # visitor network to check the location too.
-      - run: node scripts/verify.mjs --skip-location azure
+      # Two checks these runners cannot make, and only those: Azure's edge answers them without X-Azure-Ref, in
+      # 2–3 ms from a nearby cache, while visitor networks, including a US one, get it; and the China Network's
+      # mainland addresses are reached from these IPv4-only runners over no route (timed out since 2026-11-23,
+      # while the file answers 200 from China, and over IPv6 from Japan and Germany). Everything else is still
+      # checked. Run `npm run verify` from a visitor network to check the location and the China Network too.
+      - id: verify
+        run: |
+          set +e
+          node scripts/verify.mjs --skip-location azure --skip-unreachable cfchina 2>&1 | tee out.txt
+          code=${PIPESTATUS[0]}
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          exit "$code"
+      # The weekly run failed: run it again once before telling anyone (2026-11-27). A weekly check that goes red for
+      # one bad minute costs a week of silence; the second run is a fresh workflow_dispatch and never retries again.
+      - name: Retry a scheduled failure once
+        id: retry
+        if: failure() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run verify.yml --repo "$GITHUB_REPOSITORY" -f retry=1
+      # One open issue per workflow: appended to on each failure, closed when a run passes, so whoever picks it up
+      # sees the whole history.
+      - name: File or close the failure issue
+        if: always() && !(failure() && github.event_name == 'schedule' && steps.retry.outcome == 'success')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CODE: ${{ steps.verify.outputs.code }}
+          TRIGGER: ${{ github.event.inputs.retry == '1' && 'a scheduled run, retried once' || (github.event_name == 'schedule' && 'scheduled' || 'manual') }}
+        run: |
+          title="Weekly verify failed"
+          num=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "$title in:title" --limit 20 \
+            --json number,title --jq "[.[] | select(.title == \"$title\")][0].number // empty")
+          if [ "$CODE" = "0" ]; then
+            if [ -n "$num" ]; then
+              gh issue close "$num" --repo "$GITHUB_REPOSITORY" --comment "This week's verify passed; closing."
+            fi
+            exit 0
+          fi
+          body=$(printf '`node scripts/verify.mjs --skip-location azure --skip-unreachable cfchina` failed (%s UTC+8, %s run).\n\n```\n%s\n```\n' \
+            "$(TZ=Asia/Shanghai date '+%F %H:%M')" "$TRIGGER" "$(tail -c 3000 out.txt)")
+          if [ -z "$num" ]; then
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"
+          else
+            gh issue comment "$num" --repo "$GITHUB_REPOSITORY" --body "$body"
+          fi
+          exit 1

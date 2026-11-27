@@ -45,7 +45,7 @@ Which location of each big CDN answers you, how far it is, and how long a round 
 
 The first request to each CDN only opens the connection (DNS, TCP, TLS) and isn't counted; three more reuse it, and the median is the round trip to the edge. No cache-busting query: a CDN answers a cached file from the edge and an uncached one from its origin, which isn't what this measures; `cache: "no-store"` keeps the browser's own cache out.
 
-`npm run verify` checks every test file: it answers without a redirect, the location is still readable (CORS and `Access-Control-Expose-Headers`, or `Timing-Allow-Origin`), and prints the fastest of three requests on a warm connection (much more than a round trip means the origin answers). GitHub Actions runs it every week.
+`npm run verify` checks every test file: it answers without a redirect, the location is still readable (CORS and `Access-Control-Expose-Headers`, or `Timing-Allow-Origin`), and prints the fastest of three requests on a warm connection (much more than a round trip means the origin answers). GitHub Actions runs it every week, and files (or closes) an issue when a scheduled run fails twice in a row; it skips the two checks its runners cannot make: Azure's location and any route to the China Network's mainland addresses.
 
 ## Self-hosting
 
@@ -100,6 +100,7 @@ scripts/build.mjs    public/: pages per language, CDN and location; sitemaps; ro
 - For a location: CORS with the header in `Access-Control-Expose-Headers`, or `Timing-Allow-Origin` with the location in `Server-Timing`. Check from a few networks: some sites send a different CDN by region (`res.cdn.office.net` is Akamai or Azure; `res-1` is always Akamai, `res-2` always Azure).
 - Run `npm run verify` and add a sample of the new header to `test/lib.test.mjs`.
 - GitHub's runners can't check Azure's location: they get `res-2.cdn.office.net` without `X-Azure-Ref` (2–3 ms, from a nearby cache), while visitor networks, including a US one, get it. CI runs `npm run verify -- --skip-location azure`, which still checks the answer, its status, CORS, the exposed header and the timing; run `npm run verify` from your own network to check the location.
+- GitHub's IPv4-only runners also have no route to the China Network's mainland addresses (`www.cloudflare-cn.com` times out there, while it answers 200 from China). CI runs `--skip-unreachable cfchina`, which skips only a connection that never opened; any answer is still checked in full. `npm run verify` without the flag is strict.
 
 ## License
 
